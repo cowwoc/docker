@@ -1,0 +1,254 @@
+# Based on https://docs.github.com/en/actions/publishing-packages/publishing-java-packages-with-maven
+# https://gist.github.com/cstamas/69e6365bbb70521923020d68369bf8e5 and
+# https://oss.sonatype.org/nexus-staging-plugin/default/docs/rest.html
+name: Deploy to Maven Central
+on:
+  workflow_dispatch:
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  STAGING_HOST: "oss.sonatype.org"
+  OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+  OSSRH_TOKEN: ${{ secrets.OSSRH_TOKEN }}
+  MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+jobs:
+  open-release:
+    name: Open release
+    runs-on: ubuntu-latest
+    outputs:
+      INITIAL_MAIN_POSITION: ${{ steps.create-tag.outputs.INITIAL_MAIN_POSITION }}
+      INITIAL_GH_PAGES_POSITION: ${{ steps.create-tag.outputs.INITIAL_GH_PAGES_POSITION }}
+      TAG: ${{ steps.create-tag.outputs.TAG }}
+      VERSION: ${{ steps.create-tag.outputs.VERSION }}
+      STAGING_PROFILE_ID: ${{ steps.parse-profile-id.outputs.STAGING_PROFILE_ID }}
+      STAGING_REPOSITORY_ID: ${{ steps.parse-repository-id.outputs.STAGING_REPOSITORY_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 23
+          server-id: maven-central-releases
+          # Server authentication corresponds to "user token" returned by https://oss.sonatype.org/
+          server-username: OSSRH_USERNAME
+          server-password: OSSRH_TOKEN
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Cache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/*
+          key: "${{ runner.OS }}-maven-${{ hashFiles('**/pom.xml') }}"
+
+      - name: Configure Git User
+        run: |
+          git config user.email "cowwoc2020@gmail.com"
+          git config user.name "Gili Tzabari"
+
+      # Maven command-line options:
+      # --batch-mode: recommended in CI to inform maven to not run in interactive mode (less logs)
+      # -V: strongly recommended in CI, will display the JDK and Maven versions in use.
+      #      Very useful to be quickly sure the selected versions were the ones you think.
+      # -e: Display stack-traces on failure
+      #
+      # Getting the current git tag: https://stackoverflow.com/a/50465671/14731
+      #
+      # Setting a GitHub Action output parameter:
+      # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-output-parameter
+      # Extracting the release version number: https://stackoverflow.com/a/16623897/14731
+      - name: Create tag
+        id: create-tag
+        run: |
+          echo "INITIAL_MAIN_POSITION=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          ./mvnw release:prepare --batch-mode -V -e
+          TAG=$(git describe --tag --abbrev=0)
+          echo "TAG=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "VERSION=${TAG#"release-"}" >> "$GITHUB_OUTPUT"
+
+      - name: Look up staging profile id
+        id: request-profile-id
+        run: >
+          echo "STAGING_PROFILE_ID=$(curl -u '${{ secrets.OSSRH_USERNAME}}:${{ secrets.OSSRH_TOKEN }}'
+          -H 'Accept:application/json'
+          'https://${{ env.STAGING_HOST }}/service/local/staging/profile_evaluate?t=maven2&g=com.github.cowwoc.docker&a=anything&v=anything')"
+          >> "$GITHUB_OUTPUT"
+
+      - name: Parse the staging profile id
+        id: parse-profile-id
+        run: >
+          echo "STAGING_PROFILE_ID=$(echo '${{ steps.request-profile-id.outputs.STAGING_PROFILE_ID }}' | jq -r '.data[0].id')" >> "$GITHUB_OUTPUT"
+
+      - name: Open staging repository
+        id: open-repository
+        run: >
+          echo "STAGING_REPOSITORY_ID=$(curl -u '${{ secrets.OSSRH_USERNAME}}:${{ secrets.OSSRH_TOKEN }}'
+          -H 'Accept: application/json'
+          -H 'Content-type: application/json'
+          -X POST -d '{"data": {"description": "com.googlecode.cmake-maven-project:${{ steps.create-tag.outputs.VERSION }}"}}'
+          'https://${{ env.STAGING_HOST }}/service/local/staging/profiles/${{ steps.parse-profile-id.outputs.STAGING_PROFILE_ID }}/start')"
+          >> "$GITHUB_OUTPUT"
+
+      - name: Parse the staging repository id
+        id: parse-repository-id
+        run: >
+          echo "STAGING_REPOSITORY_ID=$(echo '${{ steps.open-repository.outputs.STAGING_REPOSITORY_ID }}' | jq -r '.data.stagedRepositoryId')" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy
+    needs: open-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.open-release.outputs.TAG }}
+          fetch-depth: 0
+
+      - name: Configure Git User
+        run: |
+          git config user.email "cowwoc2020@gmail.com"
+          git config user.name "Gili Tzabari"
+
+      - name: Install Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 23
+          server-id: maven-central-releases
+          # Server authentication corresponds to "user token" returned by https://oss.sonatype.org/
+          server-username: OSSRH_USERNAME
+          server-password: OSSRH_TOKEN
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Cache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/*
+          key: "${{ runner.OS }}-maven-${{ hashFiles('**/pom.xml') }}"
+
+      - name: Test build
+        run: ./mvnw --batch-mode -V -e verify
+
+      # Must quote exclamation mark on bash: https://stackoverflow.com/a/27177197/14731
+      - name: Deploy to Maven Central
+        run: >
+          ./mvnw --batch-mode -V -e
+          -Dstaging_repository_id=${{ needs.open-release.outputs.STAGING_REPOSITORY_ID }}
+          -Dstaging_host="${{ env.STAGING_HOST }}"
+          -P release
+          deploy
+
+      # Must quote exclamation mark on bash: https://stackoverflow.com/a/27177197/14731
+      - name: Generate Javadoc
+        run: |
+          ./mvnw --batch-mode -V -e javadoc:aggregate
+          mkdir --parents "${{ needs.open-release.outputs.VERSION }}/docs"
+          mv target/reports/apidocs "${{ needs.open-release.outputs.VERSION }}/docs/api"
+
+      - name: Commit changes
+        run: |
+          git checkout gh-pages -f
+          echo "INITIAL_GH_PAGES_POSITION=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git add "${{ needs.open-release.outputs.VERSION }}/docs/api"
+          git commit -m "Released version ${{ needs.open-release.outputs.VERSION }}"
+          git push
+
+  close-release:
+    name: Close release
+    needs: [ open-release, deploy ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.open-release.outputs.TAG }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 23
+          server-id: maven-central-releases
+          # Server authentication corresponds to "user token" returned by https://oss.sonatype.org/
+          server-username: OSSRH_USERNAME
+          server-password: OSSRH_TOKEN
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Cache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/*
+          key: "${{ runner.OS }}-maven-${{ hashFiles('**/pom.xml') }}"
+
+      - name: Close staging repository
+        run: >
+          curl -u ${{ secrets.OSSRH_USERNAME}}:${{ secrets.OSSRH_TOKEN }} -X POST
+          -H "Content-Type:application/json"
+          -d '{"data": {"stagedRepositoryId": "${{ needs.open-release.outputs.STAGING_REPOSITORY_ID }}", "description": "Closing repository"}}'
+          'https://${{ env.STAGING_HOST }}/service/local/staging/profiles/${{ needs.open-release.outputs.STAGING_PROFILE_ID }}/finish' 
+
+  # Cleanup on failure: https://stackoverflow.com/a/74562058/14731
+  on-failure:
+    name: On failure
+    needs: [ open-release, deploy, close-release ]
+    runs-on: ubuntu-latest
+    if: ${{ failure() || cancelled() }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+      - name: Install Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 23
+          server-id: maven-central-releases
+          # Server authentication corresponds to "user token" returned by https://oss.sonatype.org/
+          server-username: OSSRH_USERNAME
+          server-password: OSSRH_TOKEN
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Drop staging repository
+        if: needs.open-release.outputs.STAGING_REPOSITORY_ID != '' && needs.open-release.outputs.STAGING_PROFILE_ID != ''
+        run: >
+          curl -u ${{ secrets.OSSRH_USERNAME}}:${{ secrets.OSSRH_TOKEN }} -X POST
+          -H "Content-Type:application/json"
+          -d '{"data": {"stagedRepositoryId": "${{ needs.open-release.outputs.STAGING_REPOSITORY_ID }}", "description": "Dropping repository"}}'
+          'https://${{ env.STAGING_HOST }}/service/local/staging/profiles/${{ needs.open-release.outputs.STAGING_PROFILE_ID }}/drop'
+
+      - name: Restore the main ref to its original position
+        if: needs.open-release.outputs.INITIAL_MAIN_POSITION != ''
+        run: |
+          CURRENT_REF_POSITION=$(git rev-parse HEAD)
+          if [ "${CURRENT_REF_POSITION}" != "${{ needs.open-release.outputs.INITIAL_MAIN_POSITION }}" ]; then
+            git reset --hard ${{ needs.open-release.outputs.INITIAL_MAIN_POSITION }}
+            if [ "${{ github.ref_type }}" == "tag" ]; then
+              git ${{ github.ref_type }} -f ${{ github.ref_name }}
+            fi
+            git push -f origin ${{ github.ref_name }}
+          fi
+
+      - name: Delete tag
+        if: needs.open-release.outputs.TAG != ''
+        run: |
+          git push --delete origin ${{ needs.open-release.outputs.TAG }}
+
+      - name: Restore the gh-pages ref to its original position
+        if: needs.open-release.outputs.INITIAL_GH_PAGES_POSITION != ''
+        run: |
+          CURRENT_REF_POSITION=$(git rev-parse HEAD)
+          if [ "${CURRENT_REF_POSITION}" != "${{ needs.open-release.outputs.INITIAL_GH_PAGES_POSITION }}" ]; then
+            git reset --hard ${{ needs.open-release.outputs.INITIAL_GH_PAGES_POSITION }}
+            if [ "${{ github.ref_type }}" == "tag" ]; then
+              git ${{ github.ref_type }} -f ${{ github.ref_name }}
+            fi
+            git push -f origin ${{ github.ref_name }}
+          fi

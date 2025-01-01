@@ -1,0 +1,20 @@
+# Source: https://stackoverflow.com/a/10855862/14731
+# Auto detect text files and perform LF normalization
+* text=auto
+
+*.java   text diff=java
+*.html   text diff=html
+*.css    text
+*.js     text
+*.sql    text
+
+*.bat eol=crlf
+*.sh eol=lf
+mvnw eol=lf
+
+# Binary files need to be listed explicitly as first rule makes all files text files
+*.gif binary
+*.ico binary
+*.jpeg binary
+*.jpg binary
+*.png binary
