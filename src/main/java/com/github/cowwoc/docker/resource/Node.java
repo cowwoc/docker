@@ -647,6 +647,8 @@ public final class Node
 	public record Status(State state, String message)
 	{
 		/**
+		 * Creates a new instance.
+		 *
 		 * @param state   the overall health of the node
 		 * @param message a human-readable description of the state
 		 * @throws NullPointerException     if any of the arguments are null

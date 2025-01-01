@@ -254,6 +254,7 @@ public final class Image
 	 * @param client the client configuration
 	 * @param name   the name of the image to push. For example, {@code docker.io/nasa/rocket-ship}
 	 * @param tag    the tag to push
+	 * @return this
 	 * @throws NullPointerException     if any of the arguments are null
 	 * @throws IllegalArgumentException if any of the arguments contain leading or trailing whitespace or are
 	 *                                  empty
