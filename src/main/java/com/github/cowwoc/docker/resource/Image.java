@@ -33,7 +33,7 @@ import static org.eclipse.jetty.http.HttpStatus.OK_200;
 public final class Image
 {
 	/**
-	 * Returns a list of all images.
+	 * Returns all images.
 	 *
 	 * @param client the client configuration
 	 * @return the images
@@ -46,7 +46,7 @@ public final class Image
 	 * @throws InterruptedException  if the thread is interrupted while waiting for a response. This can happen
 	 *                               due to shutdown signals.
 	 */
-	public static List<Image> list(DockerClient client)
+	public static List<Image> getAll(DockerClient client)
 		throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImageList

@@ -155,7 +155,7 @@ public final class Config
 	}
 
 	/**
-	 * Returns a list of the configs.
+	 * Returns all the configs.
 	 *
 	 * @param client the client configuration
 	 * @return an empty list if no match is found
@@ -172,7 +172,7 @@ public final class Config
 	 * @throws InterruptedException  if the thread is interrupted while waiting for a response. This can happen
 	 *                               due to shutdown signals.
 	 */
-	public List<Config> list(DockerClient client) throws IOException, TimeoutException, InterruptedException
+	public List<Config> getAll(DockerClient client) throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Config/operation/ConfigList
 		String uri = client.getUri() + "/configs";
