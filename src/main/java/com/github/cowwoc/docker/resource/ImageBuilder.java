@@ -42,8 +42,8 @@ import static org.eclipse.jetty.util.BufferUtil.EMPTY_BUFFER;
 public final class ImageBuilder
 {
 	private final DockerClient client;
-	private Path buildContext = Path.of(".");
-	private Path dockerFile = buildContext.resolve("dockerFile");
+	private Path buildContext = Path.of(".").toAbsolutePath().normalize();
+	private Path dockerFile = buildContext.resolve("Dockerfile");
 	private final Set<String> platforms = new HashSet<>();
 	private final Set<String> tags = new HashSet<>();
 	private final Logger log = LoggerFactory.getLogger(ImageBuilder.class);
@@ -76,8 +76,8 @@ public final class ImageBuilder
 	}
 
 	/**
-	 * Sets the path of the {@code Dockerfile}. By default, this path is {@code Dockerfile} located in the
-	 * current working directory.
+	 * Sets the path of the {@code Dockerfile}. By default, the builder looks for the file in the current
+	 * working directory.
 	 *
 	 * @param dockerFile the path of the {@code Dockerfile}
 	 * @return this
