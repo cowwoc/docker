@@ -145,7 +145,7 @@ public final class ImageBuilder
 		Request request = httpClient.newRequest(uri).
 			transport(client.getTransport());
 		request.param("platform", String.join(",", platforms));
-		String relativeDockerFile = dockerFile.relativize(buildContext).toString();
+		String relativeDockerFile = buildContext.relativize(dockerFile).toString();
 		if (!relativeDockerFile.equals("Dockerfile"))
 			request.param("dockerfile", relativeDockerFile);
 		for (String tag : tags)
@@ -219,10 +219,13 @@ public final class ImageBuilder
 			if (!linesToLog.isEmpty())
 				log.info(linesToLog.toString());
 
-			Response serverResponse = result.getResponse();
-			if (serverResponse.getStatus() != OK_200)
+			Response response = result.getResponse();
+			if (response.getStatus() != OK_200)
 			{
-				IOException ioe = new IOException("Unexpected response: " + serverResponse.getStatus());
+				ClientRequests clientRequests = client.getClientRequests();
+				IOException ioe = new IOException(
+					"Unexpected response: " + clientRequests.toString(response) + "\n" +
+						"Request: " + clientRequests.toString(result.getRequest()));
 				if (exception != null)
 					ioe.addSuppressed(exception);
 				exception = ioe;

@@ -117,7 +117,7 @@ public final class ImagePusher
 		requireThat(username, "username").isStripped().isNotEmpty();
 		requireThat(password, "password").isStripped().isNotEmpty();
 		requireThat(email, "email").isNotNull().isStripped();
-		requireThat(serverAddress, "serverAddress ").isNotNull().isStripped();
+		requireThat(serverAddress, "serverAddress").isNotNull().isStripped();
 
 		ObjectNode credentials = client.getObjectMapper().createObjectNode();
 		credentials.put("username", username);
@@ -206,6 +206,11 @@ public final class ImagePusher
 	 */
 	private final class ImagePushListener extends StreamListener
 	{
+		/**
+		 * Defines the frequency at which it is acceptable to log the same message to indicate that the thread is
+		 * still active. This helps in monitoring the progress and ensuring the thread has not become
+		 * unresponsive.
+		 */
 		private static final Duration PROGRESS_FREQUENCY = Duration.ofSeconds(2);
 		private final AtomicReference<String> lastStatus = new AtomicReference<>("");
 		private final AtomicReference<Instant> timeOfLastStatus = new AtomicReference<>(Instant.MIN);
@@ -229,7 +234,7 @@ public final class ImagePusher
 					String status = statusNode.textValue();
 					Instant now = Instant.now();
 					if (!status.equals(lastStatus.get()) ||
-						Duration.between(timeOfLastStatus.get(), now).compareTo(PROGRESS_FREQUENCY) > 0)
+						Duration.between(timeOfLastStatus.get(), now).compareTo(PROGRESS_FREQUENCY) >= 0)
 					{
 						// Only log the status if it's changed or PROGRESS_FREQUENCY has elapsed
 						lastStatus.set(status);
@@ -297,9 +302,8 @@ public final class ImagePusher
 					default ->
 					{
 						ClientRequests clientRequests = client.getClientRequests();
-						ContentResponse serverResponse = (ContentResponse) result.getResponse();
 						throw new AssertionError(
-							"Unexpected response: " + clientRequests.toString(serverResponse) + "\n" +
+							"Unexpected response: " + clientRequests.toString(response) + "\n" +
 								"Request: " + clientRequests.toString(result.getRequest()));
 					}
 				}
