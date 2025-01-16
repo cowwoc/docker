@@ -4,14 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.cowwoc.docker.client.DockerClient;
-import com.github.cowwoc.docker.internal.util.ClientRequests;
-import com.github.cowwoc.docker.internal.util.Dockers;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
 import com.github.cowwoc.requirements10.annotation.CheckReturnValue;
 import org.eclipse.jetty.client.ContentResponse;
 import org.eclipse.jetty.client.Request;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -19,6 +18,7 @@ import java.util.List;
 import java.util.concurrent.TimeoutException;
 
 import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.requireThat;
+import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.that;
 import static org.eclipse.jetty.http.HttpMethod.GET;
 import static org.eclipse.jetty.http.HttpStatus.CREATED_201;
 import static org.eclipse.jetty.http.HttpStatus.INTERNAL_SERVER_ERROR_500;
@@ -55,12 +55,11 @@ public final class Config
 		throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Config/operation/ConfigInspect
-		String uri = client.getUri() + "/configs/" + id;
-		ClientRequests clientRequests = client.getClientRequests();
-		Request request = client.getHttpClient().newRequest(uri).
-			transport(client.getTransport()).
+		URI uri = client.getServer().resolve("configs/" + id);
+		Request request = client.createRequest(uri).
 			method(GET);
-		ContentResponse serverResponse = clientRequests.send(request);
+
+		ContentResponse serverResponse = client.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case OK_200 ->
@@ -82,11 +81,10 @@ public final class Config
 				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
 				throw new IllegalStateException(json.get("message").textValue());
 			}
-			default -> throw new AssertionError("Unexpected response: " +
-				clientRequests.toString(serverResponse) + "\n" +
-				"Request: " + clientRequests.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
+				"Request: " + client.toString(request));
 		}
-		JsonNode body = Dockers.getResponseBody(client, serverResponse);
+		JsonNode body = client.getResponseBody(serverResponse);
 		return getByJson(client, body);
 	}
 
@@ -118,16 +116,15 @@ public final class Config
 		requireThat(value, "value").isNotNull();
 
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Config/operation/ConfigCreate
-		String uri = client.getUri() + "/configs/create";
-		ClientRequests clientRequests = client.getClientRequests();
+		URI uri = client.getServer().resolve("configs/create");
 		ObjectMapper om = client.getObjectMapper();
-		ObjectNode requestBody = om.createObjectNode();
-		requestBody.put("Name", name);
-		requestBody.put("Data", Base64.getUrlEncoder().encodeToString(value));
-		Request request = client.getHttpClient().newRequest(uri).
-			transport(client.getTransport()).
+		ObjectNode requestBody = om.createObjectNode().
+			put("Name", name).
+			put("Data", Base64.getUrlEncoder().encodeToString(value));
+		Request request = client.createRequest(uri, requestBody).
 			method(GET);
-		ContentResponse serverResponse = clientRequests.send(request);
+
+		ContentResponse serverResponse = client.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case CREATED_201 ->
@@ -145,11 +142,10 @@ public final class Config
 				JsonNode json = om.readTree(serverResponse.getContentAsString());
 				throw new IllegalStateException(json.get("message").textValue());
 			}
-			default -> throw new AssertionError("Unexpected response: " +
-				clientRequests.toString(serverResponse) + "\n" +
-				"Request: " + clientRequests.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
+				"Request: " + client.toString(request));
 		}
-		JsonNode body = Dockers.getResponseBody(client, serverResponse);
+		JsonNode body = client.getResponseBody(serverResponse);
 		String id = body.get("Id").textValue();
 		return getById(client, id);
 	}
@@ -175,12 +171,11 @@ public final class Config
 	public List<Config> getAll(DockerClient client) throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Config/operation/ConfigList
-		String uri = client.getUri() + "/configs";
-		ClientRequests clientRequests = client.getClientRequests();
-		Request request = client.getHttpClient().newRequest(uri).
-			transport(client.getTransport()).
+		URI uri = client.getServer().resolve("configs");
+		Request request = client.createRequest(uri).
 			method(GET);
-		ContentResponse serverResponse = clientRequests.send(request);
+
+		ContentResponse serverResponse = client.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case OK_200 ->
@@ -202,11 +197,10 @@ public final class Config
 				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
 				throw new IllegalStateException(json.get("message").textValue());
 			}
-			default -> throw new AssertionError("Unexpected response: " +
-				clientRequests.toString(serverResponse) + "\n" +
-				"Request: " + clientRequests.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
+				"Request: " + client.toString(request));
 		}
-		JsonNode body = Dockers.getResponseBody(client, serverResponse);
+		JsonNode body = client.getResponseBody(serverResponse);
 		List<Config> configs = new ArrayList<>();
 		for (JsonNode config : body)
 			configs.add(getByJson(client, config));
@@ -233,12 +227,11 @@ public final class Config
 		throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Config/operation/ConfigList
-		String uri = client.getUri() + "/configs";
-		ClientRequests clientRequests = client.getClientRequests();
-		Request request = client.getHttpClient().newRequest(uri).
-			transport(client.getTransport()).
+		URI uri = client.getServer().resolve("configs");
+		Request request = client.createRequest(uri).
 			method(GET);
-		ContentResponse serverResponse = clientRequests.send(request);
+
+		ContentResponse serverResponse = client.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case OK_200 ->
@@ -256,11 +249,10 @@ public final class Config
 				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
 				throw new IllegalStateException(json.get("message").textValue());
 			}
-			default -> throw new AssertionError("Unexpected response: " +
-				clientRequests.toString(serverResponse) + "\n" +
-				"Request: " + clientRequests.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
+				"Request: " + client.toString(request));
 		}
-		JsonNode body = Dockers.getResponseBody(client, serverResponse);
+		JsonNode body = client.getResponseBody(serverResponse);
 		for (JsonNode entry : body)
 		{
 			Config config = getByJson(client, entry);
@@ -280,7 +272,7 @@ public final class Config
 	static Config getByJson(DockerClient client, JsonNode json)
 	{
 		String id = json.get("ID").textValue();
-		int version = Dockers.getVersion(json);
+		int version = client.getVersion(json);
 		JsonNode spec = json.get("Spec");
 		String name = spec.get("Name").textValue();
 		String value = spec.get("Value").textValue();
@@ -311,10 +303,10 @@ public final class Config
 	 */
 	private Config(DockerClient client, String id, int version, String name, byte[] value)
 	{
-		requireThat(client, "client").isNotNull();
-		requireThat(id, "id").isStripped().isNotEmpty();
-		requireThat(name, "name").isStripped().isNotEmpty();
-		requireThat(value, "value").isNotNull();
+		assert that(client, "client").isNotNull().elseThrow();
+		assert that(id, "id").isStripped().isNotEmpty().elseThrow();
+		assert that(name, "name").isStripped().isNotEmpty().elseThrow();
+		assert that(value, "value").isNotNull().elseThrow();
 		this.client = client;
 		this.id = id;
 		this.version = version;

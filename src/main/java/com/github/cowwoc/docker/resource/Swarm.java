@@ -2,19 +2,17 @@ package com.github.cowwoc.docker.resource;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.cowwoc.docker.client.DockerClient;
-import com.github.cowwoc.docker.internal.util.ClientRequests;
-import com.github.cowwoc.docker.internal.util.Dockers;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
 import com.github.cowwoc.docker.resource.Node.State;
 import org.eclipse.jetty.client.ContentResponse;
 import org.eclipse.jetty.client.Request;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
-import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.requireThat;
 import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.that;
 import static org.eclipse.jetty.http.HttpMethod.DELETE;
 import static org.eclipse.jetty.http.HttpMethod.GET;
@@ -36,7 +34,7 @@ public class Swarm
 	static Swarm getByJson(DockerClient client, JsonNode json)
 	{
 		String id = json.get("ID").textValue();
-		int version = Dockers.getVersion(json);
+		int version = client.getVersion(json);
 		JsonNode joinTokens = json.get("JoinTokens");
 		String managerToken = joinTokens.get("Manager").textValue();
 		String workerToken = joinTokens.get("Worker").textValue();
@@ -63,10 +61,10 @@ public class Swarm
 	 */
 	public Swarm(DockerClient client, String id, int version, String managerToken, String workerToken)
 	{
-		requireThat(client, "client").isNotNull();
-		requireThat(id, "id").isStripped().isNotEmpty();
-		requireThat(managerToken, "managerToken").isStripped().isNotEmpty();
-		requireThat(workerToken, "workerToken").isStripped().isNotEmpty();
+		assert that(client, "client").isNotNull().elseThrow();
+		assert that(id, "id").isStripped().isNotEmpty().elseThrow();
+		assert that(managerToken, "managerToken").isStripped().isNotEmpty().elseThrow();
+		assert that(workerToken, "workerToken").isStripped().isNotEmpty().elseThrow();
 		this.client = client;
 		this.id = id;
 		this.version = version;
@@ -151,16 +149,15 @@ public class Swarm
 		assert that(filters, "filters").isStripped().elseThrow();
 
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Node/operation/NodeList
-		String uri = client.getUri() + "/nodes";
-		Request request = client.getHttpClient().newRequest(uri);
+		URI uri = client.getServer().resolve("nodes");
+		Request request = client.createRequest(uri);
 		if (!filters.isEmpty())
 			request.param("filters", filters);
-		ClientRequests clientRequests = client.getClientRequests();
-		ContentResponse serverResponse = clientRequests.send(request.
-			transport(client.getTransport()).
-			method(GET));
-		Dockers.expectOk200(client, request, serverResponse);
-		JsonNode body = Dockers.getResponseBody(client, serverResponse);
+		request.method(GET);
+
+		ContentResponse serverResponse = client.send(request);
+		client.expectOk200(request, serverResponse);
+		JsonNode body = client.getResponseBody(serverResponse);
 		List<Node> nodes = new ArrayList<>();
 		for (JsonNode node : body)
 			nodes.add(Node.getByJson(client, node));
@@ -285,21 +282,19 @@ public class Swarm
 	public void removeNode(Node node) throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Node/operation/NodeDelete
-		String uri = client.getUri() + "/nodes/" + node.getId();
-		Request request = client.getHttpClient().newRequest(uri);
-		ClientRequests clientRequests = client.getClientRequests();
-		ContentResponse serverResponse = clientRequests.send(request.
-			transport(client.getTransport()).
-			method(DELETE));
+		URI uri = client.getServer().resolve("nodes/" + node.getId());
+		Request request = client.createRequest(uri).
+			method(DELETE);
+
+		ContentResponse serverResponse = client.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case OK_200, NOT_FOUND_404, SERVICE_UNAVAILABLE_503 ->
 			{
 				// success, node not found, or the node is not part of the swarm
 			}
-			default -> throw new AssertionError("Unexpected response: " +
-				clientRequests.toString(serverResponse) + "\n" +
-				"Request: " + clientRequests.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
+				"Request: " + client.toString(request));
 		}
 	}
 

@@ -1,7 +1,6 @@
 package com.github.cowwoc.docker.resource;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.cowwoc.docker.client.DockerClient;
 import com.github.cowwoc.docker.exception.ImageNotFoundException;
@@ -21,14 +20,12 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.eclipse.jetty.http.HttpMethod.POST;
 
 /**
- * Pushes an image to a remote repository.
+ * Pulls an image from a remote repository.
  */
-public final class ImagePusher
+public final class ImagePuller
 {
 	private final DockerClient client;
-	private final Image image;
-	private final String name;
-	private final String tag;
+	private final String id;
 	private String platform = "";
 	private ObjectNode credentials;
 
@@ -36,34 +33,29 @@ public final class ImagePusher
 	 * Creates a new instance.
 	 *
 	 * @param client the client configuration
-	 * @param image  the image to push
-	 * @param name   the name of the image to push. For example, {@code docker.io/nasa/rocket-ship}. The image
-	 *               must be present in the local image store with the same name.
-	 * @param tag    the tag to push
+	 * @param id     an image's name or ID. If a name is specified, it may include a tag or a digest.
 	 * @throws NullPointerException     if any of the arguments are null
-	 * @throws IllegalArgumentException if any of the arguments contain leading or trailing whitespace or are
-	 *                                  empty
+	 * @throws IllegalArgumentException if {@code id} contains leading or trailing whitespace or is empty
 	 */
-	public ImagePusher(DockerClient client, Image image, String name, String tag)
+	public ImagePuller(DockerClient client, String id)
 	{
 		requireThat(client, "client").isNotNull();
-		requireThat(image, "image").isNotNull();
-		requireThat(tag, "tag").isStripped().isNotEmpty();
+		// WORKAROUND: https://github.com/docker/docs/issues/21793
+		// Remote images must have a name
+		requireThat(id, "id").isStripped().isNotEmpty().doesNotStartWith("sha256:");
 		this.client = client;
-		this.image = image;
-		this.name = name;
-		this.tag = tag;
+		this.id = id;
 	}
 
 	/**
-	 * Sets the platform to push.
+	 * Sets the platform to pull.
 	 *
 	 * @param platform the platform of the image
 	 * @return this
 	 * @throws NullPointerException     if {@code platform} is null
 	 * @throws IllegalArgumentException if {@code platform} contains leading or trailing whitespace or is empty
 	 */
-	public ImagePusher platform(String platform)
+	public ImagePuller platform(String platform)
 	{
 		requireThat(platform, "platform").isStripped().isNotEmpty();
 		this.platform = platform;
@@ -80,7 +72,7 @@ public final class ImagePusher
 	 * @throws IllegalArgumentException if any of the arguments contain leading or trailing whitespace or are
 	 *                                  empty
 	 */
-	public ImagePusher credentials(String username, String password)
+	public ImagePuller credentials(String username, String password)
 	{
 		return credentials(username, password, "", "");
 	}
@@ -98,7 +90,7 @@ public final class ImagePusher
 	 *                                  empty
 	 * @throws IllegalStateException    if the client is closed
 	 */
-	public ImagePusher credentials(String username, String password, String email, String serverAddress)
+	public ImagePuller credentials(String username, String password, String email, String serverAddress)
 	{
 		requireThat(username, "username").isStripped().isNotEmpty();
 		requireThat(password, "password").isStripped().isNotEmpty();
@@ -114,9 +106,9 @@ public final class ImagePusher
 	}
 
 	/**
-	 * Pushes the image to the remote registry.
+	 * Pulls the image from the remote registry.
 	 *
-	 * @return the image that was pushed
+	 * @return the image
 	 * @throws IllegalStateException  if the client is closed
 	 * @throws ImageNotFoundException if the referenced image could not be found
 	 * @throws IOException            if an I/O error occurs. These errors are typically transient, and retrying
@@ -126,25 +118,15 @@ public final class ImagePusher
 	 * @throws InterruptedException   if the thread is interrupted while waiting for a response. This can happen
 	 *                                due to shutdown signals.
 	 */
-	public Image push() throws IOException, TimeoutException, InterruptedException
+	public Image pull() throws IOException, TimeoutException, InterruptedException
 	{
-		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImagePush
-		String encodedName = name.replace("/", "%2F");
-		URI uri = client.getServer().resolve("images/" + encodedName + "/push");
+		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImageCreate
+		URI uri = client.getServer().resolve("images/create");
 		Request request = client.createRequest(uri).
-			param("tag", tag);
+			param("fromImage", id);
 		if (!platform.isEmpty())
-		{
-			ObjectMapper om = client.getObjectMapper();
-			ObjectNode platformNode = om.createObjectNode();
-			String[] platformComponents = platform.split("/");
-			platformNode.put("os", platformComponents[0]);
-			if (platformComponents.length > 1)
-				platformNode.put("architecture", platformComponents[1]);
-			if (platformComponents.length > 2)
-				platformNode.put("variant", platformComponents[2]);
-			request.param("platform", platformNode.toString());
-		}
+			request.param("platform", platform);
+		request.method(POST);
 		if (credentials != null)
 		{
 			String credentialsAsString;
@@ -159,7 +141,6 @@ public final class ImagePusher
 			String encodedCredentials = Base64.getEncoder().encodeToString(credentialsAsString.getBytes(UTF_8));
 			request.headers(headers -> headers.put("X-Registry-Auth", encodedCredentials));
 		}
-		request.method(POST);
 
 		ImageTransferListener responseListener = new ImageTransferListener(client);
 		client.send(request, responseListener);
@@ -171,15 +152,16 @@ public final class ImagePusher
 			// Need to wrap the exception to ensure that it contains stack trace elements from the current thread
 			throw new IOException(exception);
 		}
-		return image;
+
+		String localId = client.removeRegistry(id);
+		return Image.getById(client, localId);
 	}
 
 	@Override
 	public String toString()
 	{
-		return new ToStringBuilder(ImagePusher.class).
-			add("name", name).
-			add("tag", tag).
+		return new ToStringBuilder(ImagePuller.class).
+			add("name", id).
 			add("platform", platform).
 			add("credentials", credentials).
 			toString();

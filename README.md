@@ -3,7 +3,7 @@
 
 # <img src="docs/logo.svg" width=64 height=64 alt="logo"> Docker Java Client
 
-[![API](https://img.shields.io/badge/api_docs-5B45D5.svg)](https://cowwoc.github.io/docker/0.4/)
+[![API](https://img.shields.io/badge/api_docs-5B45D5.svg)](https://cowwoc.github.io/docker/0.5/)
 [![Changelog](https://img.shields.io/badge/changelog-A345D5.svg)](docs/changelog.md)
 
 A Java client for [Docker](https://www.docker.com/).
@@ -14,7 +14,7 @@ To get started, add this Maven dependency:
 <dependency>
   <groupId>com.github.cowwoc.docker</groupId>
   <artifactId>docker</artifactId>
-  <version>0.4</version>
+  <version>0.5</version>
 </dependency>
 ```
 
@@ -41,7 +41,7 @@ class Example
       assert (image2.equals(image));
 
       image.tag("rocket-ship", "local-tag");
-      Image.pusher(client, "rocket-ship", "remote-tag").
+      image.pusher(client, "rocket-ship", "remote-tag").
         credentials("username", "Pa33word").
         push();
     }
@@ -51,7 +51,7 @@ class Example
 
 ## Getting Started
 
-See the [API documentation](https://cowwoc.github.io/docker/0.4/) for more details.
+See the [API documentation](https://cowwoc.github.io/docker/0.5/) for more details.
 
 ## Licenses
 

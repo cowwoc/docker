@@ -3,21 +3,19 @@ package com.github.cowwoc.docker.resource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.cowwoc.docker.client.DockerClient;
 import com.github.cowwoc.docker.exception.ImageNotFoundException;
-import com.github.cowwoc.docker.internal.util.ClientRequests;
-import com.github.cowwoc.docker.internal.util.Dockers;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
 import org.eclipse.jetty.client.ContentResponse;
-import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.Request;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Predicate;
 
 import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.requireThat;
 import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.that;
@@ -50,31 +48,22 @@ public final class Image
 		throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImageList
-		@SuppressWarnings("PMD.CloseResource")
-		HttpClient httpClient = client.getHttpClient();
-		ClientRequests clientRequests = client.getClientRequests();
-		String uri = client.getUri() + "/images/json";
-		Request request = httpClient.newRequest(uri).
+		URI uri = client.getServer().resolve("images/json");
+		Request request = client.createRequest(uri).
 			param("digests", "true").
-			transport(client.getTransport()).
 			method(GET);
-		ContentResponse serverResponse = clientRequests.send(request);
+
+		ContentResponse serverResponse = client.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case OK_200 ->
 			{
 				// success
 			}
-			case NOT_FOUND_404 ->
-			{
-				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
-				throw new FileNotFoundException(json.get("message").textValue());
-			}
-			default -> throw new AssertionError("Unexpected response: " + clientRequests.toString(serverResponse) +
-				"\n" +
-				"Request: " + clientRequests.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
+				"Request: " + client.toString(request));
 		}
-		JsonNode body = Dockers.getResponseBody(client, serverResponse);
+		JsonNode body = client.getResponseBody(serverResponse);
 		List<Image> images = new ArrayList<>();
 		for (JsonNode node : body)
 			images.add(getByJson(client, node));
@@ -82,14 +71,17 @@ public final class Image
 	}
 
 	/**
-	 * Looks up an image by its ID.
+	 * Looks up an image by its name or ID.
 	 *
 	 * @param client the client configuration
-	 * @param id     the ID
-	 * @return null if no match is found
+	 * @param id     an identifier of the image. Local images may be identified by their name, digest or ID.
+	 *               Remote images may be identified by their name or ID. If a name is specified, it may include
+	 *               a tag or a digest.
+	 * @return the image
 	 * @throws NullPointerException     if any of the arguments are null
-	 * @throws IllegalArgumentException if {@code id} contains leading or trailing whitespace, or is empty
+	 * @throws IllegalArgumentException if {@code id} contains leading or trailing whitespace or is empty
 	 * @throws IllegalStateException    if the client is closed
+	 * @throws ImageNotFoundException   if the image was not found
 	 * @throws IOException              if an I/O error occurs. These errors are typically transient, and
 	 *                                  retrying the request may resolve the issue.
 	 * @throws TimeoutException         if the request times out before receiving a response. This might
@@ -100,62 +92,14 @@ public final class Image
 	public static Image getById(DockerClient client, String id)
 		throws IOException, TimeoutException, InterruptedException
 	{
-		return getByIdOrName(client, id);
-	}
-
-	/**
-	 * Looks up an image by its name.
-	 *
-	 * @param client the client configuration
-	 * @param name   the name
-	 * @return null if no match is found
-	 * @throws NullPointerException     if any of the arguments are null
-	 * @throws IllegalArgumentException if {@code name} contains leading or trailing whitespace, or is empty
-	 * @throws IllegalStateException    if the client is closed
-	 * @throws IOException              if an I/O error occurs. These errors are typically transient, and
-	 *                                  retrying the request may resolve the issue.
-	 * @throws TimeoutException         if the request times out before receiving a response. This might
-	 *                                  indicate network latency or server overload.
-	 * @throws InterruptedException     if the thread is interrupted while waiting for a response. This can
-	 *                                  happen due to shutdown signals.
-	 */
-	public static Image getByName(DockerClient client, String name)
-		throws IOException, TimeoutException, InterruptedException
-	{
-		return getByIdOrName(client, name);
-	}
-
-	/**
-	 * Looks up an image by its name or ID.
-	 *
-	 * @param client   the client configuration
-	 * @param nameOrId the name or ID
-	 * @return null if no match is found
-	 * @throws NullPointerException     if any of the arguments are null
-	 * @throws IllegalArgumentException if {@code nameOrId} contains leading or trailing whitespace, or is
-	 *                                  empty
-	 * @throws IllegalStateException    if the client is closed
-	 * @throws IOException              if an I/O error occurs. These errors are typically transient, and
-	 *                                  retrying the request may resolve the issue.
-	 * @throws TimeoutException         if the request times out before receiving a response. This might
-	 *                                  indicate network latency or server overload.
-	 * @throws InterruptedException     if the thread is interrupted while waiting for a response. This can
-	 *                                  happen due to shutdown signals.
-	 */
-	private static Image getByIdOrName(DockerClient client, String nameOrId)
-		throws IOException, TimeoutException, InterruptedException
-	{
-		requireThat(nameOrId, "id").isStripped().isNotEmpty();
+		requireThat(id, "id").isStripped().isNotEmpty();
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImageInspect
-		@SuppressWarnings("PMD.CloseResource")
-		HttpClient httpClient = client.getHttpClient();
-		ClientRequests clientRequests = client.getClientRequests();
-		String uri = client.getUri() + "/images/" + nameOrId + "/json";
-		Request request = httpClient.newRequest(uri).
-			param("digests", "true").
-			transport(client.getTransport()).
+		String encodedId = id.replace("/", "%2F");
+		URI uri = client.getServer().resolve("images/" + encodedId + "/json");
+		Request request = client.createRequest(uri).
 			method(GET);
-		ContentResponse serverResponse = clientRequests.send(request);
+
+		ContentResponse serverResponse = client.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case OK_200 ->
@@ -165,75 +109,72 @@ public final class Image
 			case NOT_FOUND_404 ->
 			{
 				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
-				throw new FileNotFoundException(json.get("message").textValue());
+				throw new ImageNotFoundException(json.get("message").textValue());
 			}
-			default -> throw new AssertionError("Unexpected response: " + clientRequests.toString(serverResponse) +
-				"\n" +
-				"Request: " + clientRequests.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
+				"Request: " + client.toString(request));
 		}
-		JsonNode body = Dockers.getResponseBody(client, serverResponse);
+		JsonNode body = client.getResponseBody(serverResponse);
+		return getByJson(client, body);
+	}
+
+	/**
+	 * Returns the first image that matches a predicate.
+	 *
+	 * @param client    the client configuration
+	 * @param predicate the predicate
+	 * @return null if no match is found
+	 * @throws NullPointerException  if any of the arguments are null
+	 * @throws IllegalStateException if the client is closed
+	 * @throws IOException           if an I/O error occurs. These errors are typically transient, and retrying
+	 *                               the request may resolve the issue.
+	 * @throws TimeoutException      if the request times out before receiving a response. This might indicate
+	 *                               network latency or server overload.
+	 * @throws InterruptedException  if the thread is interrupted while waiting for a response. This can happen
+	 *                               due to shutdown signals.
+	 */
+	public static Image getByPredicate(DockerClient client, Predicate<Image> predicate)
+		throws IOException, InterruptedException, TimeoutException
+	{
+		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImageList
+		URI uri = client.getServer().resolve("images/json");
+		Request request = client.createRequest(uri).
+			param("digests", "true").
+			method(GET);
+
+		ContentResponse serverResponse = client.send(request);
+		switch (serverResponse.getStatus())
+		{
+			case OK_200 ->
+			{
+				// success
+			}
+			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
+				"Request: " + client.toString(request));
+		}
+		JsonNode body = client.getResponseBody(serverResponse);
 		for (JsonNode node : body)
 		{
 			Image image = getByJson(client, node);
-			if (image.getNameToDigest().containsValue(nameOrId))
+			if (predicate.test(image))
 				return image;
 		}
 		return null;
 	}
 
 	/**
-	 * Looks up an image by its digest.
+	 * Pulls an image from a remote repository.
 	 *
 	 * @param client the client configuration
-	 * @param digest the digest
-	 * @return null if no match is found
+	 * @param id     an identifier of the image. Local images may be identified by their name, digest or ID.
+	 *               Remote images may be identified by their name or ID. If a name is specified, it may include
+	 *               a tag or a digest.
 	 * @throws NullPointerException     if any of the arguments are null
-	 * @throws IllegalArgumentException if {@code digest} contains leading or trailing whitespace, or is empty
-	 * @throws IllegalStateException    if the client is closed
-	 * @throws IOException              if an I/O error occurs. These errors are typically transient, and
-	 *                                  retrying the request may resolve the issue.
-	 * @throws TimeoutException         if the request times out before receiving a response. This might
-	 *                                  indicate network latency or server overload.
-	 * @throws InterruptedException     if the thread is interrupted while waiting for a response. This can
-	 *                                  happen due to shutdown signals.
+	 * @throws IllegalArgumentException if {@code id} contains leading or trailing whitespace or is empty
 	 */
-	public static Image getByDigest(DockerClient client, String digest)
-		throws IOException, TimeoutException, InterruptedException
+	public static ImagePuller puller(DockerClient client, String id)
 	{
-		requireThat(digest, "digest").isStripped().isNotEmpty();
-		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImageList
-		@SuppressWarnings("PMD.CloseResource")
-		HttpClient httpClient = client.getHttpClient();
-		ClientRequests clientRequests = client.getClientRequests();
-		String uri = client.getUri() + "/images/json";
-		Request request = httpClient.newRequest(uri).
-			param("digests", "true").
-			transport(client.getTransport()).
-			method(GET);
-		ContentResponse serverResponse = clientRequests.send(request);
-		switch (serverResponse.getStatus())
-		{
-			case OK_200 ->
-			{
-				// success
-			}
-			case NOT_FOUND_404 ->
-			{
-				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
-				throw new FileNotFoundException(json.get("message").textValue());
-			}
-			default -> throw new AssertionError("Unexpected response: " + clientRequests.toString(serverResponse) +
-				"\n" +
-				"Request: " + clientRequests.toString(request));
-		}
-		JsonNode body = Dockers.getResponseBody(client, serverResponse);
-		for (JsonNode node : body)
-		{
-			Image image = getByJson(client, node);
-			if (image.getNameToDigest().containsValue(digest))
-				return image;
-		}
-		return null;
+		return new ImagePuller(client, id);
 	}
 
 	/**
@@ -249,22 +190,6 @@ public final class Image
 	}
 
 	/**
-	 * Pushes an image to a remote repository.
-	 *
-	 * @param client the client configuration
-	 * @param name   the name of the image to push. For example, {@code docker.io/nasa/rocket-ship}
-	 * @param tag    the tag to push
-	 * @return this
-	 * @throws NullPointerException     if any of the arguments are null
-	 * @throws IllegalArgumentException if any of the arguments contain leading or trailing whitespace or are
-	 *                                  empty
-	 */
-	public static ImagePusher pusher(DockerClient client, String name, String tag)
-	{
-		return new ImagePusher(client, name, tag);
-	}
-
-	/**
 	 * @param client the client configuration
 	 * @param json   the JSON representation of the node
 	 * @return the image
@@ -272,7 +197,7 @@ public final class Image
 	 */
 	private static Image getByJson(DockerClient client, JsonNode json)
 	{
-		String id = json.get("id").textValue();
+		String id = json.get("Id").textValue();
 		Map<String, String> nameToTag = new LinkedHashMap<>();
 		for (JsonNode nameAndTag : json.get("RepoTags"))
 		{
@@ -313,23 +238,24 @@ public final class Image
 	public Image(DockerClient client, String id, Map<String, String> nameToDigest,
 		Map<String, String> nameToTag)
 	{
-		requireThat(id, "id").isStripped().isNotNull();
-		requireThat(client, "client").isNotNull();
-		requireThat(nameToDigest, "nameToDigest").isNotNull();
+		assert that(client, "client").isNotNull().elseThrow();
+		assert that(id, "id").isStripped().isNotEmpty().elseThrow();
+		assert that(nameToDigest, "nameToDigest").isNotNull().elseThrow();
+
 		for (Entry<String, String> entry : nameToDigest.entrySet())
 		{
-			requireThat(entry.getKey(), "name").withContext(nameToDigest, "nameToDigest").isStripped().
-				isNotEmpty();
-			requireThat(entry.getValue(), "tag").withContext(nameToDigest, "nameToDigest").isStripped().
-				isNotEmpty();
+			assert that(entry.getKey(), "name").withContext(nameToDigest, "nameToDigest").isStripped().
+				isNotEmpty().elseThrow();
+			assert that(entry.getValue(), "tag").withContext(nameToDigest, "nameToDigest").isStripped().
+				isNotEmpty().elseThrow();
 		}
-		requireThat(nameToTag, "nameToTags").isNotNull();
+		assert that(nameToTag, "nameToTags").isNotNull().elseThrow();
 		for (Entry<String, String> entry : nameToTag.entrySet())
 		{
-			requireThat(entry.getKey(), "name").withContext(nameToTag, "nameToTag").isStripped().
-				isNotEmpty();
-			requireThat(entry.getValue(), "tag").withContext(nameToTag, "nameToTag").isStripped().
-				isNotEmpty();
+			assert that(entry.getKey(), "name").withContext(nameToTag, "nameToTag").isStripped().
+				isNotEmpty().elseThrow();
+			assert that(entry.getValue(), "tag").withContext(nameToTag, "nameToTag").isStripped().
+				isNotEmpty().elseThrow();
 		}
 		this.id = id;
 		this.client = client;
@@ -391,16 +317,14 @@ public final class Image
 		requireThat(tag, "tag").isStripped().isNotEmpty();
 
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImageTag
-		@SuppressWarnings("PMD.CloseResource")
-		HttpClient httpClient = client.getHttpClient();
-		ClientRequests clientRequests = client.getClientRequests();
-		String uri = client.getUri() + "/images/" + id + "/tag";
-		Request request = httpClient.newRequest(uri).
+		String encodedId = id.replace("/", "%2F");
+		URI uri = client.getServer().resolve("images/" + encodedId + "/tag");
+		Request request = client.createRequest(uri).
 			param("repo", repository).
 			param("tag", tag).
-			transport(client.getTransport()).
 			method(POST);
-		ContentResponse serverResponse = clientRequests.send(request);
+
+		ContentResponse serverResponse = client.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case CREATED_201 ->
@@ -409,12 +333,40 @@ public final class Image
 			case NOT_FOUND_404 ->
 			{
 				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
-				throw new FileNotFoundException(json.get("message").textValue());
+				throw new ImageNotFoundException(json.get("message").textValue());
 			}
-			default -> throw new AssertionError("Unexpected response: " + clientRequests.toString(serverResponse) +
-				"\n" +
-				"Request: " + clientRequests.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
+				"Request: " + client.toString(request));
 		}
+	}
+
+	/**
+	 * Pushes an image to a remote repository.
+	 *
+	 * @param client the client configuration
+	 * @param name   the name of the image to push. For example, {@code docker.io/nasa/rocket-ship}
+	 * @param tag    the tag to push
+	 * @return the push configuration
+	 * @throws NullPointerException     if any of the arguments are null
+	 * @throws IllegalArgumentException if any of the arguments contain leading or trailing whitespace or are
+	 *                                  empty
+	 */
+	public ImagePusher pusher(DockerClient client, String name, String tag)
+	{
+		return new ImagePusher(client, this, name, tag);
+	}
+
+	/**
+	 * Instantiate the image as a container.
+	 *
+	 * @return the container configuration
+	 * @throws NullPointerException     if any of the arguments are null
+	 * @throws IllegalArgumentException if any of the arguments contain leading or trailing whitespace or are
+	 *                                  empty
+	 */
+	public ContainerCreator createContainer()
+	{
+		return new ContainerCreator(client, id);
 	}
 
 	@Override

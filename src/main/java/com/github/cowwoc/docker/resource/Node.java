@@ -1,25 +1,22 @@
 package com.github.cowwoc.docker.resource;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.cowwoc.docker.client.DockerClient;
-import com.github.cowwoc.docker.internal.util.ClientRequests;
-import com.github.cowwoc.docker.internal.util.Dockers;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
 import com.github.cowwoc.requirements10.annotation.CheckReturnValue;
-import com.github.cowwoc.requirements10.java.validator.StringValidator;
 import org.eclipse.jetty.client.ContentResponse;
-import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.Request;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeoutException;
 
 import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.requireThat;
+import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.that;
 import static org.eclipse.jetty.http.HttpMethod.DELETE;
 import static org.eclipse.jetty.http.HttpMethod.GET;
 import static org.eclipse.jetty.http.HttpMethod.POST;
@@ -56,7 +53,7 @@ public final class Node
 	public static Node getById(DockerClient client, String id)
 		throws IOException, TimeoutException, InterruptedException
 	{
-		return getByIdOrName(client, id);
+		return getByNameOrId(client, id);
 	}
 
 	/**
@@ -82,17 +79,17 @@ public final class Node
 	public static Node getByName(DockerClient client, String name)
 		throws IOException, TimeoutException, InterruptedException
 	{
-		return getByIdOrName(client, name);
+		return getByNameOrId(client, name);
 	}
 
 	/**
-	 * Looks up a node by its ID or name.
+	 * Looks up a node by its name or ID.
 	 *
 	 * @param client   the client configuration
-	 * @param idOrName the node's ID or name
+	 * @param nameOrId the node's name or ID
 	 * @return null if no match is found
 	 * @throws NullPointerException     if any of the arguments are null
-	 * @throws IllegalArgumentException if {@code idOrName} contains leading or trailing whitespace or is empty
+	 * @throws IllegalArgumentException if {@code nameOrId} contains leading or trailing whitespace or is empty
 	 * @throws IllegalStateException    if:
 	 *                                  <ul>
 	 *                                    <li>the client is closed.</li>
@@ -105,16 +102,15 @@ public final class Node
 	 * @throws InterruptedException     if the thread is interrupted while waiting for a response. This can
 	 *                                  happen due to shutdown signals.
 	 */
-	private static Node getByIdOrName(DockerClient client, String idOrName)
+	private static Node getByNameOrId(DockerClient client, String nameOrId)
 		throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Node/operation/NodeInspect
-		String uri = client.getUri() + "/nodes/" + idOrName;
-		ClientRequests clientRequests = client.getClientRequests();
-		Request request = client.getHttpClient().newRequest(uri).
-			transport(client.getTransport()).
+		URI uri = client.getServer().resolve("nodes/" + nameOrId);
+		Request request = client.createRequest(uri).
 			method(GET);
-		ContentResponse serverResponse = clientRequests.send(request);
+
+		ContentResponse serverResponse = client.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case OK_200 ->
@@ -136,11 +132,10 @@ public final class Node
 				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
 				throw new IllegalStateException(json.get("message").textValue());
 			}
-			default -> throw new AssertionError("Unexpected response: " +
-				clientRequests.toString(serverResponse) + "\n" +
-				"Request: " + clientRequests.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
+				"Request: " + client.toString(request));
 		}
-		JsonNode body = Dockers.getResponseBody(client, serverResponse);
+		JsonNode body = client.getResponseBody(serverResponse);
 		return getByJson(client, body);
 	}
 
@@ -153,7 +148,7 @@ public final class Node
 	static Node getByJson(DockerClient client, JsonNode json)
 	{
 		String id = json.get("ID").textValue();
-		int version = Dockers.getVersion(json);
+		int version = client.getVersion(json);
 		JsonNode spec = json.get("Spec");
 		Availability availability = Availability.valueOf(spec.get("Availability").textValue().
 			toUpperCase(Locale.ROOT));
@@ -260,25 +255,23 @@ public final class Node
 		boolean leader, Status status, Reachability reachability, Availability availability,
 		String managerAddress, String address, List<String> labels)
 	{
-		requireThat(client, "client").isNotNull();
-		requireThat(id, "id").isStripped().isNotEmpty();
-		requireThat(name, "name").isStripped();
-		requireThat(hostname, "hostname").isStripped().isNotEmpty();
-		requireThat(role, "role").isNotNull();
-		requireThat(status, "status").isNotNull();
-		requireThat(reachability, "reachability").isNotNull();
-		requireThat(availability, "availability").isNotNull();
-		requireThat(address, "address").isStripped().isNotEmpty();
-		StringValidator managerAddressValidator = requireThat(managerAddress, "managerAddress").isStripped();
-		switch (role)
+		assert that(client, "client").isNotNull().elseThrow();
+		assert that(id, "id").isStripped().isNotEmpty().elseThrow();
+		assert that(name, "name").isStripped().elseThrow();
+		assert that(hostname, "hostname").isStripped().isNotEmpty().elseThrow();
+		assert that(role, "role").isNotNull().elseThrow();
+		assert that(status, "status").isNotNull().elseThrow();
+		assert that(reachability, "reachability").isNotNull().elseThrow();
+		assert that(availability, "availability").isNotNull().elseThrow();
+		assert that(address, "address").isStripped().isNotEmpty().elseThrow();
+
+		assert switch (role)
 		{
-			case MANAGER -> managerAddressValidator.isNotEmpty();
-			case WORKER ->
-			{
-				// do nothing
-			}
-		}
-		requireThat(labels, "labels").isNotNull();
+			case MANAGER -> that(managerAddress, "managerAddress").isStripped().isNotEmpty().elseThrow();
+			// do nothing
+			case WORKER -> true;
+		};
+		assert that(labels, "labels").isNotNull().elseThrow();
 		this.client = client;
 		this.id = id;
 		this.version = version;
@@ -438,8 +431,7 @@ public final class Node
 	public Node drain() throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Node/operation/NodeUpdate
-		ObjectMapper om = client.getObjectMapper();
-		ObjectNode requestBody = om.createObjectNode().
+		ObjectNode requestBody = client.getObjectMapper().createObjectNode().
 			put("Availability", "drain");
 		return update(requestBody);
 	}
@@ -460,18 +452,18 @@ public final class Node
 	 */
 	private Node update(JsonNode requestBody) throws IOException, TimeoutException, InterruptedException
 	{
-		ClientRequests clientRequests = client.getClientRequests();
-		String uri = client.getUri() + "/nodes/" + id + "/update";
-		Request request = Dockers.createRequest(client, uri, requestBody).
-			method(POST).
-			param("version", String.valueOf(version));
-		ContentResponse serverResponse = clientRequests.send(request);
+		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Node/operation/NodeUpdate
+		URI uri = client.getServer().resolve("nodes/" + id + "/update");
+		Request request = client.createRequest(uri, requestBody).
+			param("version", String.valueOf(version)).
+			method(POST);
+
+		ContentResponse serverResponse = client.send(request);
 		return switch (serverResponse.getStatus())
 		{
 			case OK_200 -> reload();
-			default -> throw new AssertionError("Unexpected response: " +
-				clientRequests.toString(serverResponse) + "\n" +
-				"Request: " + clientRequests.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
+				"Request: " + client.toString(request));
 		};
 	}
 
@@ -490,20 +482,17 @@ public final class Node
 	public List<Task> getTasks() throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Task/operation/TaskList
-		@SuppressWarnings("PMD.CloseResource")
-		HttpClient httpClient = client.getHttpClient();
-		ClientRequests clientRequests = client.getClientRequests();
-		String uri = client.getUri() + "/tasks";
-		Request request = httpClient.newRequest(uri).
-			transport(client.getTransport()).
+		URI uri = client.getServer().resolve("tasks");
+		Request request = client.createRequest(uri).
 			param("filters", "{node=" + id + "}").
 			method(GET);
-		ContentResponse serverResponse = clientRequests.send(request);
-		Dockers.expectOk200(client, request, serverResponse);
-		JsonNode body = Dockers.getResponseBody(client, serverResponse);
+
+		ContentResponse serverResponse = client.send(request);
+		client.expectOk200(request, serverResponse);
+		JsonNode body = client.getResponseBody(serverResponse);
 		List<Task> tasks = new ArrayList<>();
 		for (JsonNode task : body)
-			tasks.add(Task.getByJson(task));
+			tasks.add(Task.getByJson(client, task));
 		return tasks;
 	}
 
@@ -524,10 +513,9 @@ public final class Node
 	public Node setRole(SwarmRole role) throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Node/operation/NodeUpdate
-		ObjectMapper om = client.getObjectMapper();
-		ObjectNode requestBody = om.createObjectNode().
+		ObjectNode requestBody = client.getObjectMapper().createObjectNode().
 			put("Version", version).
-			put("Role", role.name().toLowerCase(Locale.ROOT));
+			put("Role", role.toJson());
 		return update(requestBody);
 	}
 
@@ -545,23 +533,19 @@ public final class Node
 	public void destroy() throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Node/operation/NodeDelete
-		@SuppressWarnings("PMD.CloseResource")
-		HttpClient httpClient = client.getHttpClient();
-		ClientRequests clientRequests = client.getClientRequests();
-		String uri = client.getUri() + "/nodes/" + id;
-		Request request = httpClient.newRequest(uri).
-			transport(client.getTransport()).
+		URI uri = client.getServer().resolve("nodes/" + id);
+		Request request = client.createRequest(uri).
 			method(DELETE);
-		ContentResponse serverResponse = clientRequests.send(request);
+
+		ContentResponse serverResponse = client.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case OK_200, NOT_FOUND_404 ->
 			{
 				// success
 			}
-			default -> throw new AssertionError("Unexpected response: " +
-				clientRequests.toString(serverResponse) + "\n" +
-				"Request: " + clientRequests.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
+				"Request: " + client.toString(request));
 		}
 	}
 
@@ -697,6 +681,16 @@ public final class Node
 		/**
 		 * A node that runs tasks.
 		 */
-		WORKER
+		WORKER;
+
+		/**
+		 * Returns the object's JSON representation.
+		 *
+		 * @return the JSON representation
+		 */
+		public String toJson()
+		{
+			return name().toLowerCase(Locale.ROOT);
+		}
 	}
 }

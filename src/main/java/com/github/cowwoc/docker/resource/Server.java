@@ -6,18 +6,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.cowwoc.docker.client.DockerClient;
-import com.github.cowwoc.docker.internal.util.ClientRequests;
-import com.github.cowwoc.docker.internal.util.Dockers;
 import com.github.cowwoc.pouch.core.WrappedCheckedException;
 import com.github.cowwoc.requirements10.annotation.CheckReturnValue;
 import org.eclipse.jetty.client.ContentResponse;
-import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.Request;
 import org.eclipse.jetty.http.HttpFields;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.ConnectException;
+import java.net.URI;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +23,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.TimeoutException;
 
 import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.requireThat;
+import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.that;
 import static org.eclipse.jetty.http.HttpMethod.GET;
 import static org.eclipse.jetty.http.HttpMethod.POST;
 import static org.eclipse.jetty.http.HttpStatus.OK_200;
@@ -40,10 +39,6 @@ public class Server
 	 */
 	private static final BigDecimal REQUIRED_VERSION = new BigDecimal("1.47");
 	/**
-	 * The port used for unencrypted communication to the REST API.
-	 */
-	public static final int UNENCRYPTED_PORT = 2375;
-	/**
 	 * The port used for communication with and between docker containers across hosts.
 	 *
 	 * @see <a
@@ -55,7 +50,7 @@ public class Server
 	private final String nodeId;
 
 	/**
-	 * Determines if the server is accessible.
+	 * Determines if the server is accessible and supports the API version required by this library.
 	 *
 	 * @param client the client configuration
 	 * @return {@code true} if the server is accessible, or {@code false} if it is not
@@ -71,16 +66,12 @@ public class Server
 		throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/System/operation/SystemPing
-		@SuppressWarnings("PMD.CloseResource")
-		HttpClient httpClient = client.getHttpClient();
-		ClientRequests clientRequests = client.getClientRequests();
-		String uri = client.getUri() + "/_ping";
+		URI uri = client.getServer().resolve("_ping");
+		Request request = client.createRequest(uri).
+			method(GET);
 		try
 		{
-			Request request = httpClient.newRequest(uri).
-				transport(client.getTransport()).
-				method(GET);
-			ContentResponse serverResponse = clientRequests.send(request);
+			ContentResponse serverResponse = client.send(request);
 			switch (serverResponse.getStatus())
 			{
 				case OK_200 ->
@@ -88,9 +79,8 @@ public class Server
 					// success
 				}
 				default -> throw new AssertionError(
-					"Unexpected response: " + clientRequests.toString(serverResponse) +
-						"\n" +
-						"Request: " + clientRequests.toString(request));
+					"Unexpected response: " + client.toString(serverResponse) + "\n" +
+						"Request: " + client.toString(request));
 			}
 			HttpFields headers = serverResponse.getHeaders();
 			BigDecimal supportedVersion = new BigDecimal(headers.get("API-Version"));
@@ -119,14 +109,11 @@ public class Server
 		throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/System/operation/SystemInfo
-		@SuppressWarnings("PMD.CloseResource")
-		HttpClient httpClient = client.getHttpClient();
-		ClientRequests clientRequests = client.getClientRequests();
-		String uri = client.getUri() + "/info";
-		ContentResponse serverResponse = clientRequests.send(httpClient.newRequest(uri).
-			transport(client.getTransport()).
-			method(GET));
-		requireThat(serverResponse.getStatus(), "responseCode").isEqualTo(OK_200);
+		URI uri = client.getServer().resolve("info");
+		Request request = client.createRequest(uri).
+			method(GET);
+		ContentResponse serverResponse = client.send(request);
+		client.expectOk200(request, serverResponse);
 		JsonNode body = client.getObjectMapper().readTree(serverResponse.getContentAsString());
 		String id = body.get("ID").textValue();
 		JsonNode swarm = body.get("Swarm");
@@ -153,9 +140,9 @@ public class Server
 	 */
 	public Server(DockerClient client, String id, String nodeId)
 	{
-		requireThat(client, "client").isNotNull();
-		requireThat(id, "id").isStripped().isNotEmpty();
-		requireThat(nodeId, "nodeId").isStripped();
+		assert that(client, "client").isNotNull().elseThrow();
+		assert that(id, "id").isStripped().isNotEmpty().elseThrow();
+		assert that(nodeId, "nodeId").isStripped().elseThrow();
 		this.client = client;
 		this.id = id;
 		this.nodeId = nodeId;
@@ -197,13 +184,10 @@ public class Server
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Swarm/operation/SwarmInspect
 		@SuppressWarnings("PMD.CloseResource")
-		HttpClient httpClient = client.getHttpClient();
-		String uri = client.getUri() + "/swarm";
-		Request request = httpClient.newRequest(uri).
-			transport(client.getTransport()).
+		URI uri = client.getServer().resolve("swarm");
+		Request request = client.createRequest(uri).
 			method(GET);
-		ClientRequests clientRequests = client.getClientRequests();
-		ContentResponse serverResponse = clientRequests.send(request);
+		ContentResponse serverResponse = client.send(request);
 		JsonNode body = switch (serverResponse.getStatus())
 		{
 			case OK_200 ->
@@ -219,10 +203,8 @@ public class Server
 			}
 			// The server is not a member of a swarm
 			case SERVICE_UNAVAILABLE_503 -> null;
-			default -> throw new AssertionError(
-				"Unexpected response: " + clientRequests.toString(serverResponse) +
-					"\n" +
-					"Request: " + clientRequests.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
+				"Request: " + client.toString(request));
 		};
 		if (body == null)
 			return null;
@@ -308,8 +290,7 @@ public class Server
 		requireThat(subnetSize, "subnetSize").isBetween(16, true, 28, true);
 
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Swarm/operation/SwarmInit
-		ObjectMapper om = client.getObjectMapper();
-		ObjectNode requestBody = om.createObjectNode();
+		ObjectNode requestBody = client.getObjectMapper().createObjectNode();
 		requestBody.put("ListenAddr", listenAddress);
 		requestBody.put("AdvertiseAddr", advertiseAddress);
 		requestBody.put("DataPathAddr", dataPathAddress);
@@ -330,12 +311,10 @@ public class Server
 		for (Entry<String, String> label : labels.entrySet())
 			labelsNode.put(label.getKey(), label.getValue());
 
-		@SuppressWarnings("PMD.CloseResource")
-		ClientRequests clientRequests = client.getClientRequests();
-		String uri = client.getUri() + "/swarm/init";
-		Request request = Dockers.createRequest(client, uri, requestBody).
+		URI uri = client.getServer().resolve("swarm/init");
+		Request request = client.createRequest(uri, requestBody).
 			method(POST);
-		ContentResponse serverResponse = client.getClientRequests().send(request);
+		ContentResponse serverResponse = client.send(request);
 		return switch (serverResponse.getStatus())
 		{
 			case OK_200 -> reload();
@@ -346,9 +325,8 @@ public class Server
 				String message = responseBody.get("message").textValue();
 				throw new IllegalStateException(message);
 			}
-			default -> throw new AssertionError(
-				"Unexpected response: " + clientRequests.toString(serverResponse) + "\n" +
-					"Request: " + clientRequests.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
+				"Request: " + client.toString(request));
 		};
 	}
 
@@ -384,8 +362,8 @@ public class Server
 		requireThat(advertiseAddress, "advertiseAddress").isStripped().isNotEmpty();
 		requireThat(listenAddress, "listenAddress").isStripped().isNotEmpty();
 
-		ObjectMapper om = client.getObjectMapper();
-		ObjectNode requestBody = om.createObjectNode();
+		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Swarm/operation/SwarmJoin
+		ObjectNode requestBody = client.getObjectMapper().createObjectNode();
 		requestBody.put("AdvertiseAddr", advertiseAddress);
 		requestBody.put("DataPathAddr", dataPathAddress);
 		return joinServer(listenAddress, managerAddresses, joinToken, requestBody);
@@ -446,26 +424,21 @@ public class Server
 		requireThat(managerAddresses, "managerAddresses").isNotNull();
 		requireThat(joinToken, "joinToken").isStripped().isNotEmpty();
 
-		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Swarm/operation/SwarmJoin
-		@SuppressWarnings("PMD.CloseResource")
-		ClientRequests clientRequests = client.getClientRequests();
-		String uri = client.getUri() + "/swarm/join";
-
 		requestBody.put("ListenAddr", listenAddress);
 		ArrayNode remoteAddrs = requestBody.putArray("RemoteAddrs");
 		for (String address : managerAddresses)
 			remoteAddrs.add(address);
 		requestBody.put("JoinToken", joinToken);
 
-		Request request = Dockers.createRequest(client, uri, requestBody).
+		URI uri = client.getServer().resolve("swarm/join");
+		Request request = client.createRequest(uri, requestBody).
 			method(POST);
-		ContentResponse serverResponse = client.getClientRequests().send(request);
+		ContentResponse serverResponse = client.send(request);
 		return switch (serverResponse.getStatus())
 		{
 			case OK_200 -> reload();
-			default -> throw new AssertionError(
-				"Unexpected response: " + clientRequests.toString(serverResponse) + "\n" +
-					"Request: " + clientRequests.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
+				"Request: " + client.toString(request));
 		};
 	}
 
@@ -485,21 +458,17 @@ public class Server
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Swarm/operation/SwarmLeave
 		@SuppressWarnings("PMD.CloseResource")
-		ClientRequests clientRequests = client.getClientRequests();
-		String uri = client.getUri() + "/swarm/leave";
-
-		Request request = client.getHttpClient().newRequest(uri).
-			transport(client.getTransport()).
+		URI uri = client.getServer().resolve("swarm/leave");
+		Request request = client.createRequest(uri).
 			method(POST);
-		ContentResponse serverResponse = client.getClientRequests().send(request);
+		ContentResponse serverResponse = client.send(request);
 		return switch (serverResponse.getStatus())
 		{
 			case OK_200 -> reload();
 			// The server is not a member of a swarm
 			case SERVICE_UNAVAILABLE_503 -> this;
-			default -> throw new AssertionError(
-				"Unexpected response: " + clientRequests.toString(serverResponse) + "\n" +
-					"Request: " + clientRequests.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
+				"Request: " + client.toString(request));
 		};
 	}
 

@@ -16,9 +16,9 @@ import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.requir
 public interface DockerClient extends AutoCloseable, InternalClient
 {
 	/**
-	 * Creates a client that communicates over a Unix socket.
+	 * Creates a client that communicates with the server over a Unix socket.
 	 *
-	 * @param path the path of the unix path (e.g. {@code /var/run/docker.sock})
+	 * @param path the unix socket of the REST server (e.g. {@code /var/run/docker.sock})
 	 * @return a new client
 	 * @throws NullPointerException if {@code path} is null
 	 */
@@ -29,9 +29,9 @@ public interface DockerClient extends AutoCloseable, InternalClient
 	}
 
 	/**
-	 * Creates a client that communicates over TCP/IP.
+	 * Creates a client that communicates with the server over TCP/IP.
 	 *
-	 * @param uri the URI of the REST API server (e.g. {@code http://localhost:2375/})
+	 * @param uri the URI of the REST server (e.g. {@code http://localhost:2375/})
 	 * @return a new client
 	 * @throws NullPointerException if {@code uri} is null
 	 */
@@ -41,9 +41,9 @@ public interface DockerClient extends AutoCloseable, InternalClient
 	}
 
 	/**
-	 * Determines if the client was closed.
+	 * Determines if the client is closed.
 	 *
-	 * @return {@code true} if the client was closed
+	 * @return {@code true} if the client is closed
 	 */
 	boolean isClosed();
 

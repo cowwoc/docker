@@ -1,24 +1,18 @@
 package com.github.cowwoc.docker.resource;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.github.cowwoc.docker.client.DockerClient;
-import com.github.cowwoc.docker.internal.util.ClientRequests;
-import com.github.cowwoc.docker.internal.util.StreamListener;
-import com.github.cowwoc.docker.internal.util.Strings;
+import com.github.cowwoc.docker.internal.util.DockerfileParser;
+import com.github.cowwoc.docker.internal.util.DockerignoreParser;
+import com.github.cowwoc.docker.internal.util.ImageBuildListener;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.eclipse.jetty.client.BytesRequestContent;
-import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.Request;
-import org.eclipse.jetty.client.Response;
-import org.eclipse.jetty.client.Result;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,24 +23,24 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Predicate;
 import java.util.zip.GZIPOutputStream;
 
 import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.requireThat;
 import static org.eclipse.jetty.http.HttpMethod.POST;
-import static org.eclipse.jetty.http.HttpStatus.OK_200;
-import static org.eclipse.jetty.util.BufferUtil.EMPTY_BUFFER;
 
 /**
  * Builds an image.
  */
 public final class ImageBuilder
 {
+	private final DockerfileParser dockerfileParser = new DockerfileParser();
+	private final DockerignoreParser dockerignoreParser = new DockerignoreParser();
 	private final DockerClient client;
 	private Path buildContext = Path.of(".").toAbsolutePath().normalize();
-	private Path dockerFile = buildContext.resolve("Dockerfile");
+	private Path dockerfile = buildContext.resolve("Dockerfile");
 	private final Set<String> platforms = new HashSet<>();
 	private final Set<String> tags = new HashSet<>();
-	private final Logger log = LoggerFactory.getLogger(ImageBuilder.class);
 
 	/**
 	 * Creates a new instance.
@@ -79,14 +73,14 @@ public final class ImageBuilder
 	 * Sets the path of the {@code Dockerfile}. By default, the builder looks for the file in the current
 	 * working directory.
 	 *
-	 * @param dockerFile the path of the {@code Dockerfile}
+	 * @param dockerfile the path of the {@code Dockerfile}
 	 * @return this
 	 * @throws NullPointerException if {@code dockerFile} is null
 	 */
-	public ImageBuilder dockerFile(Path dockerFile)
+	public ImageBuilder dockerfile(Path dockerfile)
 	{
-		requireThat(dockerFile, "dockerFile").isNotNull();
-		this.dockerFile = dockerFile;
+		requireThat(dockerfile, "dockerfile").isNotNull();
+		this.dockerfile = dockerfile;
 		return this;
 	}
 
@@ -124,7 +118,8 @@ public final class ImageBuilder
 	 * Builds the image.
 	 *
 	 * @return the new image
-	 * @throws IllegalArgumentException if {@code dockerFile} is not {@code buildContext}
+	 * @throws IllegalArgumentException if {@code dockerFile} is not in the
+	 *                                  {@link #buildContext(Path) buildContext}
 	 * @throws IllegalStateException    if the client is closed
 	 * @throws IOException              if an I/O error occurs. These errors are typically transient, and
 	 *                                  retrying the request may resolve the issue.
@@ -135,114 +130,68 @@ public final class ImageBuilder
 	 */
 	public Image build() throws IOException, TimeoutException, InterruptedException
 	{
-		requireThat(buildContext, "buildContext").contains(dockerFile, "dockerFile");
+		requireThat(buildContext, "buildContext").contains(dockerfile, "dockerFile");
 
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImageBuild
-		@SuppressWarnings("PMD.CloseResource")
-		HttpClient httpClient = client.getHttpClient();
-		ClientRequests clientRequests = client.getClientRequests();
-		String uri = client.getUri() + "/build";
-		Request request = httpClient.newRequest(uri).
-			transport(client.getTransport());
-		request.param("platform", String.join(",", platforms));
-		String relativeDockerFile = buildContext.relativize(dockerFile).toString();
-		if (!relativeDockerFile.equals("Dockerfile"))
-			request.param("dockerfile", relativeDockerFile);
+		URI uri = client.getServer().resolve("build");
+		Request request = client.createRequest(uri).
+			param("platform", String.join(",", platforms));
+		// Path.relativize() requires both Paths to be relative or absolute
+		Path absoluteBuildContext = buildContext.toAbsolutePath().normalize();
+		Path dockerfile = absoluteBuildContext.relativize(this.dockerfile.toAbsolutePath().normalize());
+
+		// TarArchiveEntry converts Windows-style slashes to / so we need to do the same
+		String dockerfileAsString = dockerfile.toString().replace('\\', '/');
+		if (!dockerfileAsString.equals("Dockerfile"))
+			request.param("dockerfile", dockerfileAsString);
 		for (String tag : tags)
 			request.param("t", tag);
-		byte[] buildContextAsTar = getBuildContextAsTar(buildContext);
-		ImageBuildListener responseListener = new ImageBuildListener();
-		clientRequests.send(request.method(POST).
-				body(new BytesRequestContent("application/x-tar", buildContextAsTar)),
-			responseListener);
-		if (!responseListener.responseComplete.await(5, TimeUnit.MINUTES))
+
+		// Per https://docs.docker.com/build/concepts/context/#filename-and-location:
+		// A Dockerfile-specific ignore-file takes precedence over the .dockerignore file at the root of the
+		// build context if both exist.
+		Path dockerignore = this.dockerfile.resolveSibling(this.dockerfile.getFileName() + ".dockerignore");
+		if (Files.notExists(dockerignore))
+			dockerignore = buildContext.resolve(".dockerignore");
+
+		Predicate<Path> dockerFilePredicate = dockerfileParser.parse(dockerfile, absoluteBuildContext);
+		Predicate<Path> buildContextPredicate;
+		if (Files.exists(dockerignore))
+		{
+			buildContextPredicate = dockerignoreParser.parse(dockerignore, absoluteBuildContext).negate().
+				and(dockerFilePredicate);
+		}
+		else
+			buildContextPredicate = dockerFilePredicate;
+
+		byte[] buildContextAsTar = getBuildContextAsTar(buildContextPredicate, absoluteBuildContext);
+		request.body(new BytesRequestContent("application/x-tar", buildContextAsTar)).
+			method(POST);
+
+		ImageBuildListener responseListener = new ImageBuildListener(client);
+		client.send(request, responseListener);
+		if (!responseListener.getExceptionReady().await(5, TimeUnit.MINUTES))
 			throw new TimeoutException();
-		if (responseListener.exception != null)
-			throw responseListener.exception;
+		IOException exception = responseListener.getException();
+		if (exception != null)
+		{
+			// Need to wrap the exception to ensure that it contains stack trace elements from the current thread
+			throw new IOException(exception);
+		}
 		return new Image(client, responseListener.imageId, Map.of(), Map.of());
-	}
-
-	/**
-	 * Logs the output of "docker build" incrementally.
-	 */
-	private final class ImageBuildListener extends StreamListener
-	{
-		public String imageId;
-		private final StringBuilder linesToLog = new StringBuilder();
-
-		/**
-		 * Creates a new instance.
-		 */
-		public ImageBuildListener()
-		{
-		}
-
-		@Override
-		protected void processObject(String jsonAsString)
-		{
-			try
-			{
-				JsonNode json = client.getObjectMapper().readTree(jsonAsString);
-				JsonNode streamNode = json.get("stream");
-				if (streamNode != null)
-				{
-					String line = streamNode.textValue();
-					linesToLog.append(line);
-					Strings.logLines(linesToLog, log);
-				}
-				JsonNode auxNode = json.get("aux");
-				if (auxNode != null)
-				{
-					assert (imageId == null);
-					JsonNode idNode = auxNode.get("ID");
-					Set<String> fieldNames = new HashSet<>();
-					auxNode.fieldNames().forEachRemaining(fieldNames::add);
-					fieldNames.remove("ID");
-					if (!fieldNames.isEmpty())
-						log.warn("Unexpected fields: {}", fieldNames);
-					imageId = idNode.textValue();
-				}
-			}
-			catch (JsonProcessingException e)
-			{
-				if (exception != null)
-					e.addSuppressed(exception);
-				exception = e;
-			}
-		}
-
-		@Override
-		public void onComplete(Result result)
-		{
-			decodeObjects(EMPTY_BUFFER, true);
-			processObject(true);
-			if (!linesToLog.isEmpty())
-				log.info(linesToLog.toString());
-
-			Response response = result.getResponse();
-			if (response.getStatus() != OK_200)
-			{
-				ClientRequests clientRequests = client.getClientRequests();
-				IOException ioe = new IOException(
-					"Unexpected response: " + clientRequests.toString(response) + "\n" +
-						"Request: " + clientRequests.toString(result.getRequest()));
-				if (exception != null)
-					ioe.addSuppressed(exception);
-				exception = ioe;
-			}
-			responseComplete.countDown();
-		}
 	}
 
 	/**
 	 * Creates a TAR archive containing the contents of the build context.
 	 *
-	 * @param buildContext the path of the build context
+	 * @param predicate    a function that returns {@code true} to include a path in the build context and
+	 *                     {@code false} to exclude it
+	 * @param buildContext the build context
 	 * @return the contents of the TAR archive
-	 * @throws NullPointerException if {@code buildContext} is null
+	 * @throws NullPointerException if any of the arguments are null
 	 * @throws IOException          if an I/O error occurs while reading files or writing to the stream
 	 */
-	private byte[] getBuildContextAsTar(Path buildContext) throws IOException
+	private byte[] getBuildContextAsTar(Predicate<Path> predicate, Path buildContext) throws IOException
 	{
 		try (ByteArrayOutputStream baos = new ByteArrayOutputStream())
 		{
@@ -257,15 +206,24 @@ public final class ImageBuilder
 					@Override
 					public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException
 					{
-						addToTar(tos, file, buildContext.relativize(file).toString());
+						if (predicate.test(file))
+						{
+							Path fileRelativeToBuildContext = buildContext.relativize(file.toAbsolutePath());
+							addToTar(tos, file, fileRelativeToBuildContext.toString());
+						}
 						return FileVisitResult.CONTINUE;
 					}
 
 					@Override
 					public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException
 					{
-						addToTar(tos, dir, buildContext.relativize(dir) + "/");
-						return FileVisitResult.CONTINUE;
+						if (predicate.test(dir))
+						{
+							Path dirRelativeToBuildContext = buildContext.relativize(dir.toAbsolutePath());
+							addToTar(tos, dir, dirRelativeToBuildContext + "/");
+							return FileVisitResult.CONTINUE;
+						}
+						return FileVisitResult.SKIP_SUBTREE;
 					}
 
 					@Override
@@ -289,7 +247,7 @@ public final class ImageBuilder
 	 */
 	private static void addToTar(TarArchiveOutputStream tos, Path path, String entryName) throws IOException
 	{
-		var entry = new TarArchiveEntry(path.toFile(), entryName);
+		TarArchiveEntry entry = new TarArchiveEntry(path.toFile(), entryName);
 		if (Files.isSymbolicLink(path))
 		{
 			entry.setLinkName(Files.readSymbolicLink(path).toString());
