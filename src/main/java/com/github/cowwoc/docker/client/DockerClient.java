@@ -1,7 +1,6 @@
 package com.github.cowwoc.docker.client;
 
-import com.github.cowwoc.docker.internal.client.InternalClient;
-import com.github.cowwoc.docker.internal.client.MainDockerClient;
+import com.github.cowwoc.docker.internal.client.MainInternalClient;
 import org.eclipse.jetty.io.Transport;
 import org.eclipse.jetty.io.Transport.TCPUnix;
 
@@ -13,7 +12,7 @@ import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.requir
 /**
  * A client of the Docker REST API.
  */
-public interface DockerClient extends AutoCloseable, InternalClient
+public interface DockerClient extends AutoCloseable
 {
 	/**
 	 * Creates a client that communicates with the server over a Unix socket.
@@ -25,7 +24,7 @@ public interface DockerClient extends AutoCloseable, InternalClient
 	static DockerClient usingUnixSocket(Path path)
 	{
 		requireThat(path, "path").isNotNull();
-		return new MainDockerClient(URI.create("http://localhost/"), new TCPUnix(path));
+		return new MainInternalClient(URI.create("http://localhost/"), new TCPUnix(path));
 	}
 
 	/**
@@ -37,7 +36,7 @@ public interface DockerClient extends AutoCloseable, InternalClient
 	 */
 	static DockerClient usingTcpIp(URI uri)
 	{
-		return new MainDockerClient(uri, Transport.TCP_IP);
+		return new MainInternalClient(uri, Transport.TCP_IP);
 	}
 
 	/**

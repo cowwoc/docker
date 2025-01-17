@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.github.cowwoc.docker.client.DockerClient;
 import com.github.cowwoc.docker.exception.ContainerAlreadyStartedException;
 import com.github.cowwoc.docker.exception.ContainerNotFoundException;
+import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
 import org.eclipse.jetty.client.ContentResponse;
 import org.eclipse.jetty.client.Request;
@@ -48,7 +49,7 @@ public final class Container
 	public static Container getById(DockerClient client, String id)
 		throws IOException, TimeoutException, InterruptedException
 	{
-		return getByNameOrId(client, id);
+		return getByNameOrId((InternalClient) client, id);
 	}
 
 	/**
@@ -70,7 +71,7 @@ public final class Container
 	public static Container getByName(DockerClient client, String name)
 		throws IOException, TimeoutException, InterruptedException
 	{
-		return getByNameOrId(client, name);
+		return getByNameOrId((InternalClient) client, name);
 	}
 
 	/**
@@ -90,7 +91,7 @@ public final class Container
 	 * @throws InterruptedException     if the thread is interrupted while waiting for a response. This can
 	 *                                  happen due to shutdown signals.
 	 */
-	private static Container getByNameOrId(DockerClient client, String nameOrId)
+	private static Container getByNameOrId(InternalClient client, String nameOrId)
 		throws IOException, TimeoutException, InterruptedException
 	{
 		requireThat(nameOrId, "nameOrId").isStripped().isNotEmpty();
@@ -109,7 +110,7 @@ public final class Container
 			}
 			case NOT_FOUND_404 ->
 			{
-				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = client.getJsonMapper().readTree(serverResponse.getContentAsString());
 				throw new ContainerNotFoundException(json.get("message").textValue());
 			}
 			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
@@ -125,7 +126,7 @@ public final class Container
 	 * @return the container
 	 * @throws NullPointerException if any of the arguments are null
 	 */
-	private static Container getByJson(DockerClient client, JsonNode json)
+	private static Container getByJson(InternalClient client, JsonNode json)
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Container/operation/ContainerInspect
 		String id = json.get("Id").textValue();
@@ -133,7 +134,7 @@ public final class Container
 		return new Container(client, id, name);
 	}
 
-	private final DockerClient client;
+	private final InternalClient client;
 	private final String id;
 	private final String name;
 
@@ -147,7 +148,7 @@ public final class Container
 	 * @throws IllegalArgumentException if any of the arguments contain leading or trailing whitespace or is
 	 *                                  empty
 	 */
-	private Container(DockerClient client, String id, String name)
+	private Container(InternalClient client, String id, String name)
 	{
 		assert that(client, "client").isNotNull().elseThrow();
 		assert that(id, "id").isStripped().isNotEmpty().elseThrow();
@@ -209,7 +210,7 @@ public final class Container
 			}
 			case NOT_FOUND_404 ->
 			{
-				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = client.getJsonMapper().readTree(serverResponse.getContentAsString());
 				throw new ContainerNotFoundException(json.get("message").textValue());
 			}
 			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
@@ -248,7 +249,7 @@ public final class Container
 			}
 			case NOT_FOUND_404 ->
 			{
-				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = client.getJsonMapper().readTree(serverResponse.getContentAsString());
 				throw new ContainerNotFoundException(json.get("message").textValue());
 			}
 			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
@@ -277,7 +278,7 @@ public final class Container
 			case OK_200 ->
 			{
 				// success
-				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = client.getJsonMapper().readTree(serverResponse.getContentAsString());
 				long code = client.toLong(json.get("StatusCode"), "StatusCode");
 				JsonNode errorNode = json.get("Error");
 				String error;
@@ -289,7 +290,7 @@ public final class Container
 			}
 			case NOT_FOUND_404 ->
 			{
-				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = client.getJsonMapper().readTree(serverResponse.getContentAsString());
 				throw new ContainerNotFoundException(json.get("message").textValue());
 			}
 			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +

@@ -1,7 +1,7 @@
 package com.github.cowwoc.docker.internal.util;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.github.cowwoc.docker.client.DockerClient;
+import com.github.cowwoc.docker.internal.client.InternalClient;
 import org.eclipse.jetty.client.Response;
 import org.eclipse.jetty.client.Result;
 
@@ -28,7 +28,7 @@ public final class ImageBuildListener extends JsonStreamListener
 	 * @param client the client configuration
 	 * @throws NullPointerException if {@code client} is null
 	 */
-	public ImageBuildListener(DockerClient client)
+	public ImageBuildListener(InternalClient client)
 	{
 		super(client);
 	}

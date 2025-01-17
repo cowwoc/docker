@@ -1,10 +1,10 @@
 package com.github.cowwoc.docker.resource;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.github.cowwoc.docker.client.DockerClient;
 import com.github.cowwoc.docker.exception.ImageNotFoundException;
+import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.docker.internal.util.ImageTransferListener;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
 import com.github.cowwoc.pouch.core.WrappedCheckedException;
@@ -25,7 +25,7 @@ import static org.eclipse.jetty.http.HttpMethod.POST;
  */
 public final class ImagePusher
 {
-	private final DockerClient client;
+	private final InternalClient client;
 	private final Image image;
 	private final String name;
 	private final String tag;
@@ -44,7 +44,7 @@ public final class ImagePusher
 	 * @throws IllegalArgumentException if any of the arguments contain leading or trailing whitespace or are
 	 *                                  empty
 	 */
-	public ImagePusher(DockerClient client, Image image, String name, String tag)
+	ImagePusher(InternalClient client, Image image, String name, String tag)
 	{
 		requireThat(client, "client").isNotNull();
 		requireThat(image, "image").isNotNull();
@@ -106,7 +106,7 @@ public final class ImagePusher
 		requireThat(serverAddress, "serverAddress").isNotNull().isStripped();
 
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#section/Authentication
-		ObjectNode credentials = client.getObjectMapper().createObjectNode();
+		ObjectNode credentials = client.getJsonMapper().createObjectNode();
 		credentials.put("username", username);
 		credentials.put("password", password);
 		this.credentials = credentials;
@@ -135,8 +135,8 @@ public final class ImagePusher
 			param("tag", tag);
 		if (!platform.isEmpty())
 		{
-			ObjectMapper om = client.getObjectMapper();
-			ObjectNode platformNode = om.createObjectNode();
+			JsonMapper jm = client.getJsonMapper();
+			ObjectNode platformNode = jm.createObjectNode();
 			String[] platformComponents = platform.split("/");
 			platformNode.put("os", platformComponents[0]);
 			if (platformComponents.length > 1)
@@ -150,7 +150,7 @@ public final class ImagePusher
 			String credentialsAsString;
 			try
 			{
-				credentialsAsString = client.getObjectMapper().writeValueAsString(credentials);
+				credentialsAsString = client.getJsonMapper().writeValueAsString(credentials);
 			}
 			catch (JsonProcessingException e)
 			{

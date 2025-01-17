@@ -2,6 +2,16 @@ Minor updates involving cosmetic changes have been omitted from this list.
 
 See https://github.com/cowwoc/docker/commits/main for a full list.
 
+## Version 0.6 - 2025/01/17
+
+* `Image.getById` and `ImagePuller.pull()` now return `null` if the image was not found instead of throwing
+  `ImageNotFoundException.`
+* Added `ImageBuilder.cacheFrom()`.
+* Added `Server.getUri()`.
+* Bugfixes
+  * `InternalClient` was unintentionally exposed to end-users.
+  * `ContainerCreator.environmentVariable()` was always failing.
+
 ## Version 0.5 - 2025/01/16
 
 * Added `Image.puller()` for pulling images.

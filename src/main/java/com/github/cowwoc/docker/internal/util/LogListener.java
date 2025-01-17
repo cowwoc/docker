@@ -2,8 +2,8 @@ package com.github.cowwoc.docker.internal.util;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.github.cowwoc.docker.client.DockerClient;
 import com.github.cowwoc.docker.exception.ImageNotFoundException;
+import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.pouch.core.WrappedCheckedException;
 import org.eclipse.jetty.client.Response;
 import org.eclipse.jetty.client.Result;
@@ -48,7 +48,7 @@ public final class LogListener extends AsyncResponseListener
 	 * @param stderr the container's stderr stream, or null if disabled
 	 * @throws NullPointerException if {@code client} is null
 	 */
-	public LogListener(DockerClient client, OutputStream stdout, OutputStream stderr)
+	public LogListener(InternalClient client, OutputStream stdout, OutputStream stderr)
 	{
 		super(client);
 		this.stdout = stdout;
@@ -266,7 +266,7 @@ public final class LogListener extends AsyncResponseListener
 	{
 		try
 		{
-			return client.getObjectMapper().readTree(responseAsString.toString());
+			return client.getJsonMapper().readTree(responseAsString.toString());
 		}
 		catch (JsonProcessingException e)
 		{

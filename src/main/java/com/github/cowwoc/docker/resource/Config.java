@@ -1,9 +1,10 @@
 package com.github.cowwoc.docker.resource;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.cowwoc.docker.client.DockerClient;
+import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
 import com.github.cowwoc.requirements10.annotation.CheckReturnValue;
 import org.eclipse.jetty.client.ContentResponse;
@@ -55,11 +56,12 @@ public final class Config
 		throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Config/operation/ConfigInspect
-		URI uri = client.getServer().resolve("configs/" + id);
-		Request request = client.createRequest(uri).
+		InternalClient ic = (InternalClient) client;
+		URI uri = ic.getServer().resolve("configs/" + id);
+		Request request = ic.createRequest(uri).
 			method(GET);
 
-		ContentResponse serverResponse = client.send(request);
+		ContentResponse serverResponse = ic.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case OK_200 ->
@@ -72,20 +74,20 @@ public final class Config
 			}
 			case INTERNAL_SERVER_ERROR_500 ->
 			{
-				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = ic.getJsonMapper().readTree(serverResponse.getContentAsString());
 				throw new IOException(json.get("message").textValue());
 			}
 			case SERVICE_UNAVAILABLE_503 ->
 			{
 				// The node is not part of a swarm
-				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = ic.getJsonMapper().readTree(serverResponse.getContentAsString());
 				throw new IllegalStateException(json.get("message").textValue());
 			}
-			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
-				"Request: " + client.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + ic.toString(serverResponse) + "\n" +
+				"Request: " + ic.toString(request));
 		}
-		JsonNode body = client.getResponseBody(serverResponse);
-		return getByJson(client, body);
+		JsonNode body = ic.getResponseBody(serverResponse);
+		return getByJson(ic, body);
 	}
 
 	/**
@@ -114,17 +116,18 @@ public final class Config
 	{
 		requireThat(name, "name").isStripped().isNotEmpty();
 		requireThat(value, "value").isNotNull();
+		InternalClient ic = (InternalClient) client;
 
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Config/operation/ConfigCreate
-		URI uri = client.getServer().resolve("configs/create");
-		ObjectMapper om = client.getObjectMapper();
-		ObjectNode requestBody = om.createObjectNode().
+		URI uri = ic.getServer().resolve("configs/create");
+		JsonMapper jm = ic.getJsonMapper();
+		ObjectNode requestBody = jm.createObjectNode().
 			put("Name", name).
 			put("Data", Base64.getUrlEncoder().encodeToString(value));
-		Request request = client.createRequest(uri, requestBody).
+		Request request = ic.createRequest(uri, requestBody).
 			method(GET);
 
-		ContentResponse serverResponse = client.send(request);
+		ContentResponse serverResponse = ic.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case CREATED_201 ->
@@ -133,21 +136,21 @@ public final class Config
 			}
 			case INTERNAL_SERVER_ERROR_500 ->
 			{
-				JsonNode json = om.readTree(serverResponse.getContentAsString());
+				JsonNode json = jm.readTree(serverResponse.getContentAsString());
 				throw new IOException(json.get("message").textValue());
 			}
 			case SERVICE_UNAVAILABLE_503 ->
 			{
 				// The node is not part of a swarm
-				JsonNode json = om.readTree(serverResponse.getContentAsString());
+				JsonNode json = jm.readTree(serverResponse.getContentAsString());
 				throw new IllegalStateException(json.get("message").textValue());
 			}
-			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
-				"Request: " + client.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + ic.toString(serverResponse) + "\n" +
+				"Request: " + ic.toString(request));
 		}
-		JsonNode body = client.getResponseBody(serverResponse);
+		JsonNode body = ic.getResponseBody(serverResponse);
 		String id = body.get("Id").textValue();
-		return getById(client, id);
+		return getById(ic, id);
 	}
 
 	/**
@@ -170,12 +173,14 @@ public final class Config
 	 */
 	public List<Config> getAll(DockerClient client) throws IOException, TimeoutException, InterruptedException
 	{
+		InternalClient ic = (InternalClient) client;
+
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Config/operation/ConfigList
-		URI uri = client.getServer().resolve("configs");
-		Request request = client.createRequest(uri).
+		URI uri = ic.getServer().resolve("configs");
+		Request request = ic.createRequest(uri).
 			method(GET);
 
-		ContentResponse serverResponse = client.send(request);
+		ContentResponse serverResponse = ic.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case OK_200 ->
@@ -188,22 +193,22 @@ public final class Config
 			}
 			case INTERNAL_SERVER_ERROR_500 ->
 			{
-				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = ic.getJsonMapper().readTree(serverResponse.getContentAsString());
 				throw new IOException(json.get("message").textValue());
 			}
 			case SERVICE_UNAVAILABLE_503 ->
 			{
 				// The node is not part of a swarm
-				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = ic.getJsonMapper().readTree(serverResponse.getContentAsString());
 				throw new IllegalStateException(json.get("message").textValue());
 			}
-			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
-				"Request: " + client.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + ic.toString(serverResponse) + "\n" +
+				"Request: " + ic.toString(request));
 		}
-		JsonNode body = client.getResponseBody(serverResponse);
+		JsonNode body = ic.getResponseBody(serverResponse);
 		List<Config> configs = new ArrayList<>();
 		for (JsonNode config : body)
-			configs.add(getByJson(client, config));
+			configs.add(getByJson(ic, config));
 		return configs;
 	}
 
@@ -226,12 +231,14 @@ public final class Config
 	public static Config getByName(DockerClient client, String name)
 		throws IOException, TimeoutException, InterruptedException
 	{
+		InternalClient ic = (InternalClient) client;
+
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Config/operation/ConfigList
-		URI uri = client.getServer().resolve("configs");
-		Request request = client.createRequest(uri).
+		URI uri = ic.getServer().resolve("configs");
+		Request request = ic.createRequest(uri).
 			method(GET);
 
-		ContentResponse serverResponse = client.send(request);
+		ContentResponse serverResponse = ic.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case OK_200 ->
@@ -240,22 +247,22 @@ public final class Config
 			}
 			case INTERNAL_SERVER_ERROR_500 ->
 			{
-				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = ic.getJsonMapper().readTree(serverResponse.getContentAsString());
 				throw new IOException(json.get("message").textValue());
 			}
 			case SERVICE_UNAVAILABLE_503 ->
 			{
 				// The node is not part of a swarm
-				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = ic.getJsonMapper().readTree(serverResponse.getContentAsString());
 				throw new IllegalStateException(json.get("message").textValue());
 			}
-			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
-				"Request: " + client.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + ic.toString(serverResponse) + "\n" +
+				"Request: " + ic.toString(request));
 		}
-		JsonNode body = client.getResponseBody(serverResponse);
+		JsonNode body = ic.getResponseBody(serverResponse);
 		for (JsonNode entry : body)
 		{
-			Config config = getByJson(client, entry);
+			Config config = getByJson(ic, entry);
 			if (config.getName().equals(name))
 				return config;
 		}
@@ -269,7 +276,7 @@ public final class Config
 	 * @throws NullPointerException  if any of the arguments are null
 	 * @throws IllegalStateException if the client is closed
 	 */
-	static Config getByJson(DockerClient client, JsonNode json)
+	static Config getByJson(InternalClient client, JsonNode json)
 	{
 		String id = json.get("ID").textValue();
 		int version = client.getVersion(json);
@@ -280,7 +287,7 @@ public final class Config
 		return new Config(client, id, version, name, valueAsBytes);
 	}
 
-	private final DockerClient client;
+	private final InternalClient client;
 	private final String id;
 	private final int version;
 	private final String name;
@@ -301,7 +308,7 @@ public final class Config
 	 *                                    <li>the {@code name} is empty.</li>
 	 *                                  </ul>
 	 */
-	private Config(DockerClient client, String id, int version, String name, byte[] value)
+	private Config(InternalClient client, String id, int version, String name, byte[] value)
 	{
 		assert that(client, "client").isNotNull().elseThrow();
 		assert that(id, "id").isStripped().isNotEmpty().elseThrow();

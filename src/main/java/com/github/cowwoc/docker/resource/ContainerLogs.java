@@ -1,6 +1,6 @@
 package com.github.cowwoc.docker.resource;
 
-import com.github.cowwoc.docker.client.DockerClient;
+import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.docker.internal.util.LogListener;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
 import com.github.cowwoc.docker.resource.Container.LogStreams;
@@ -19,7 +19,7 @@ import static org.eclipse.jetty.http.HttpMethod.GET;
 
 public final class ContainerLogs
 {
-	private final DockerClient client;
+	private final InternalClient client;
 	private final String id;
 	private boolean follow = true;
 	private boolean stdout = true;
@@ -37,7 +37,7 @@ public final class ContainerLogs
 	 * @throws NullPointerException     if any of the arguments are null
 	 * @throws IllegalArgumentException if {@code id} contains leading or trailing whitespace or is empty
 	 */
-	public ContainerLogs(DockerClient client, String id)
+	ContainerLogs(InternalClient client, String id)
 	{
 		assert that(client, "client").isNotNull().elseThrow();
 		assert that(id, "id").isStripped().isNotEmpty().elseThrow();

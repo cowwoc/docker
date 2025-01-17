@@ -2,10 +2,11 @@ package com.github.cowwoc.docker.resource;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.cowwoc.docker.client.DockerClient;
+import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.pouch.core.WrappedCheckedException;
 import com.github.cowwoc.requirements10.annotation.CheckReturnValue;
 import org.eclipse.jetty.client.ContentResponse;
@@ -45,7 +46,7 @@ public class Server
 	 * 	href="https://docs.docker.com/engine/swarm/swarm-tutorial/#open-protocols-and-ports-between-the-hosts">documentation</a>
 	 */
 	private static final int DEFAULT_DATA_PATH_PORT = 4789;
-	private final DockerClient client;
+	private final InternalClient client;
 	private final String id;
 	private final String nodeId;
 
@@ -65,13 +66,15 @@ public class Server
 	public static boolean isAvailable(DockerClient client)
 		throws IOException, TimeoutException, InterruptedException
 	{
+		InternalClient ic = (InternalClient) client;
+
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/System/operation/SystemPing
-		URI uri = client.getServer().resolve("_ping");
-		Request request = client.createRequest(uri).
+		URI uri = ic.getServer().resolve("_ping");
+		Request request = ic.createRequest(uri).
 			method(GET);
 		try
 		{
-			ContentResponse serverResponse = client.send(request);
+			ContentResponse serverResponse = ic.send(request);
 			switch (serverResponse.getStatus())
 			{
 				case OK_200 ->
@@ -79,8 +82,8 @@ public class Server
 					// success
 				}
 				default -> throw new AssertionError(
-					"Unexpected response: " + client.toString(serverResponse) + "\n" +
-						"Request: " + client.toString(request));
+					"Unexpected response: " + ic.toString(serverResponse) + "\n" +
+						"Request: " + ic.toString(request));
 			}
 			HttpFields headers = serverResponse.getHeaders();
 			BigDecimal supportedVersion = new BigDecimal(headers.get("API-Version"));
@@ -108,13 +111,15 @@ public class Server
 	public static Server get(DockerClient client)
 		throws IOException, TimeoutException, InterruptedException
 	{
+		InternalClient ic = (InternalClient) client;
+
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/System/operation/SystemInfo
-		URI uri = client.getServer().resolve("info");
-		Request request = client.createRequest(uri).
+		URI uri = ic.getServer().resolve("info");
+		Request request = ic.createRequest(uri).
 			method(GET);
-		ContentResponse serverResponse = client.send(request);
-		client.expectOk200(request, serverResponse);
-		JsonNode body = client.getObjectMapper().readTree(serverResponse.getContentAsString());
+		ContentResponse serverResponse = ic.send(request);
+		ic.expectOk200(request, serverResponse);
+		JsonNode body = ic.getJsonMapper().readTree(serverResponse.getContentAsString());
 		String id = body.get("ID").textValue();
 		JsonNode swarm = body.get("Swarm");
 		String nodeId;
@@ -122,7 +127,7 @@ public class Server
 			nodeId = "";
 		else
 			nodeId = swarm.get("NodeID").textValue();
-		return new Server(client, id, nodeId);
+		return new Server(ic, id, nodeId);
 	}
 
 	/**
@@ -138,7 +143,7 @@ public class Server
 	 *                                    <li>any of the mandatory arguments is empty.</li>
 	 *                                  </ul>
 	 */
-	public Server(DockerClient client, String id, String nodeId)
+	Server(InternalClient client, String id, String nodeId)
 	{
 		assert that(client, "client").isNotNull().elseThrow();
 		assert that(id, "id").isStripped().isNotEmpty().elseThrow();
@@ -156,6 +161,16 @@ public class Server
 	public String getId()
 	{
 		return id;
+	}
+
+	/**
+	 * Returns the URI of the docker server.
+	 *
+	 * @return the URI
+	 */
+	public URI getUri()
+	{
+		return client.getServer();
 	}
 
 	/**
@@ -194,7 +209,7 @@ public class Server
 			{
 				try
 				{
-					yield client.getObjectMapper().readTree(serverResponse.getContentAsString());
+					yield client.getJsonMapper().readTree(serverResponse.getContentAsString());
 				}
 				catch (JsonProcessingException e)
 				{
@@ -290,7 +305,7 @@ public class Server
 		requireThat(subnetSize, "subnetSize").isBetween(16, true, 28, true);
 
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Swarm/operation/SwarmInit
-		ObjectNode requestBody = client.getObjectMapper().createObjectNode();
+		ObjectNode requestBody = client.getJsonMapper().createObjectNode();
 		requestBody.put("ListenAddr", listenAddress);
 		requestBody.put("AdvertiseAddr", advertiseAddress);
 		requestBody.put("DataPathAddr", dataPathAddress);
@@ -321,7 +336,7 @@ public class Server
 			case SERVICE_UNAVAILABLE_503 ->
 			{
 				// The server is already part of a swarm
-				JsonNode responseBody = client.getObjectMapper().readTree(serverResponse.getContentAsString());
+				JsonNode responseBody = client.getJsonMapper().readTree(serverResponse.getContentAsString());
 				String message = responseBody.get("message").textValue();
 				throw new IllegalStateException(message);
 			}
@@ -363,7 +378,7 @@ public class Server
 		requireThat(listenAddress, "listenAddress").isStripped().isNotEmpty();
 
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Swarm/operation/SwarmJoin
-		ObjectNode requestBody = client.getObjectMapper().createObjectNode();
+		ObjectNode requestBody = client.getJsonMapper().createObjectNode();
 		requestBody.put("AdvertiseAddr", advertiseAddress);
 		requestBody.put("DataPathAddr", dataPathAddress);
 		return joinServer(listenAddress, managerAddresses, joinToken, requestBody);
@@ -391,8 +406,8 @@ public class Server
 	public Server joinSwarmAsWorker(String listenAddress, List<String> managerAddresses, String joinToken)
 		throws IOException, TimeoutException, InterruptedException
 	{
-		ObjectMapper om = client.getObjectMapper();
-		ObjectNode requestBody = om.createObjectNode();
+		JsonMapper jm = client.getJsonMapper();
+		ObjectNode requestBody = jm.createObjectNode();
 		return joinServer(listenAddress, managerAddresses, joinToken, requestBody);
 	}
 

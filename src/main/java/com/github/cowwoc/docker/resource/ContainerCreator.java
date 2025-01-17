@@ -1,14 +1,13 @@
 package com.github.cowwoc.docker.resource;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.github.cowwoc.docker.client.DockerClient;
+import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
 import org.eclipse.jetty.client.ContentResponse;
 import org.eclipse.jetty.client.Request;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
@@ -21,7 +20,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.StringJoiner;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 
 import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.requireThat;
 import static org.eclipse.jetty.http.HttpMethod.POST;
@@ -32,7 +30,7 @@ import static org.eclipse.jetty.http.HttpStatus.CREATED_201;
  */
 public final class ContainerCreator
 {
-	private final DockerClient client;
+	private final InternalClient client;
 	private final String id;
 	private String name = "";
 	private String platform = "";
@@ -53,7 +51,7 @@ public final class ContainerCreator
 	 * @throws IllegalArgumentException if any of the arguments contain leading or trailing whitespace or are
 	 *                                  empty
 	 */
-	public ContainerCreator(DockerClient client, String id)
+	ContainerCreator(InternalClient client, String id)
 	{
 		requireThat(client, "client").isNotNull();
 		requireThat(id, "id").isStripped().isNotEmpty();
@@ -277,12 +275,13 @@ public final class ContainerCreator
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Container/operation/ContainerCreate
 		URI uri = client.getServer().resolve("containers/create");
 
-		ObjectMapper om = client.getObjectMapper();
-		ObjectNode requestBody = om.createObjectNode();
+		JsonMapper jm = client.getJsonMapper();
+		ObjectNode requestBody = jm.createObjectNode();
 		if (!environmentVariables.isEmpty())
 		{
-			requestBody.put("Env", environmentVariables.entrySet().stream().
-				map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining(",")));
+			ArrayNode envNode = requestBody.putArray("Env");
+			for (Entry<String, String> entry : environmentVariables.entrySet())
+				envNode.add(entry.getKey() + "=" + entry.getValue());
 		}
 		requestBody.put("Image", id);
 		if (!command.isEmpty())
@@ -307,12 +306,12 @@ public final class ContainerCreator
 				restartPolicyNode.put("MaximumRetryCount", restartPolicy.maximumRetryCount);
 		}
 
-		ObjectNode hostConfig = om.createObjectNode();
+		ObjectNode hostConfig = jm.createObjectNode();
 		if (autoRemove)
 			hostConfig.put("AutoRemove", true);
 		if (!hostPathToBindMount.isEmpty())
 		{
-			ArrayNode bindsArray = om.createArrayNode();
+			ArrayNode bindsArray = jm.createArrayNode();
 			for (Entry<Path, BindMount> entry : hostPathToBindMount.entrySet())
 			{
 				BindMount container = entry.getValue();
@@ -346,7 +345,6 @@ public final class ContainerCreator
 		}
 		JsonNode responseBody = client.getResponseBody(serverResponse);
 		String id = responseBody.get("Id").textValue();
-		LoggerFactory.getLogger(ContainerCreator.class).info("new container: " + id);
 		List<String> warnings = client.arrayToListOfString(responseBody.get("Warnings"), "Warnings");
 		return new CreateResult(Container.getById(client, id), warnings);
 	}

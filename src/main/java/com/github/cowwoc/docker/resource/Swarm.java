@@ -1,7 +1,7 @@
 package com.github.cowwoc.docker.resource;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.github.cowwoc.docker.client.DockerClient;
+import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
 import com.github.cowwoc.docker.resource.Node.State;
 import org.eclipse.jetty.client.ContentResponse;
@@ -31,7 +31,7 @@ public class Swarm
 	 * @return the node
 	 * @throws NullPointerException if any of the arguments are null
 	 */
-	static Swarm getByJson(DockerClient client, JsonNode json)
+	static Swarm getByJson(InternalClient client, JsonNode json)
 	{
 		String id = json.get("ID").textValue();
 		int version = client.getVersion(json);
@@ -41,7 +41,7 @@ public class Swarm
 		return new Swarm(client, id, version, managerToken, workerToken);
 	}
 
-	private final DockerClient client;
+	private final InternalClient client;
 	private final String id;
 	private final int version;
 	private final String managerToken;
@@ -59,7 +59,7 @@ public class Swarm
 	 * @throws IllegalArgumentException if any of the arguments contain leading or trailing whitespace or are
 	 *                                  empty
 	 */
-	public Swarm(DockerClient client, String id, int version, String managerToken, String workerToken)
+	Swarm(InternalClient client, String id, int version, String managerToken, String workerToken)
 	{
 		assert that(client, "client").isNotNull().elseThrow();
 		assert that(id, "id").isStripped().isNotEmpty().elseThrow();

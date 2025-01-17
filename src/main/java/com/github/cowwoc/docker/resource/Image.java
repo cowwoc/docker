@@ -3,6 +3,7 @@ package com.github.cowwoc.docker.resource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.cowwoc.docker.client.DockerClient;
 import com.github.cowwoc.docker.exception.ImageNotFoundException;
+import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
 import org.eclipse.jetty.client.ContentResponse;
 import org.eclipse.jetty.client.Request;
@@ -47,26 +48,28 @@ public final class Image
 	public static List<Image> getAll(DockerClient client)
 		throws IOException, TimeoutException, InterruptedException
 	{
+		InternalClient ic = (InternalClient) client;
+
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImageList
-		URI uri = client.getServer().resolve("images/json");
-		Request request = client.createRequest(uri).
+		URI uri = ic.getServer().resolve("images/json");
+		Request request = ic.createRequest(uri).
 			param("digests", "true").
 			method(GET);
 
-		ContentResponse serverResponse = client.send(request);
+		ContentResponse serverResponse = ic.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case OK_200 ->
 			{
 				// success
 			}
-			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
-				"Request: " + client.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + ic.toString(serverResponse) + "\n" +
+				"Request: " + ic.toString(request));
 		}
-		JsonNode body = client.getResponseBody(serverResponse);
+		JsonNode body = ic.getResponseBody(serverResponse);
 		List<Image> images = new ArrayList<>();
 		for (JsonNode node : body)
-			images.add(getByJson(client, node));
+			images.add(getByJson(ic, node));
 		return images;
 	}
 
@@ -77,11 +80,10 @@ public final class Image
 	 * @param id     an identifier of the image. Local images may be identified by their name, digest or ID.
 	 *               Remote images may be identified by their name or ID. If a name is specified, it may include
 	 *               a tag or a digest.
-	 * @return the image
+	 * @return null if no match is found
 	 * @throws NullPointerException     if any of the arguments are null
 	 * @throws IllegalArgumentException if {@code id} contains leading or trailing whitespace or is empty
 	 * @throws IllegalStateException    if the client is closed
-	 * @throws ImageNotFoundException   if the image was not found
 	 * @throws IOException              if an I/O error occurs. These errors are typically transient, and
 	 *                                  retrying the request may resolve the issue.
 	 * @throws TimeoutException         if the request times out before receiving a response. This might
@@ -93,29 +95,26 @@ public final class Image
 		throws IOException, TimeoutException, InterruptedException
 	{
 		requireThat(id, "id").isStripped().isNotEmpty();
+		InternalClient ic = (InternalClient) client;
+
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImageInspect
 		String encodedId = id.replace("/", "%2F");
-		URI uri = client.getServer().resolve("images/" + encodedId + "/json");
-		Request request = client.createRequest(uri).
+		URI uri = ic.getServer().resolve("images/" + encodedId + "/json");
+		Request request = ic.createRequest(uri).
 			method(GET);
 
-		ContentResponse serverResponse = client.send(request);
-		switch (serverResponse.getStatus())
+		ContentResponse serverResponse = ic.send(request);
+		return switch (serverResponse.getStatus())
 		{
 			case OK_200 ->
 			{
-				// success
+				JsonNode body = ic.getResponseBody(serverResponse);
+				yield getByJson(ic, body);
 			}
-			case NOT_FOUND_404 ->
-			{
-				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
-				throw new ImageNotFoundException(json.get("message").textValue());
-			}
-			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
-				"Request: " + client.toString(request));
-		}
-		JsonNode body = client.getResponseBody(serverResponse);
-		return getByJson(client, body);
+			case NOT_FOUND_404 -> null;
+			default -> throw new AssertionError("Unexpected response: " + ic.toString(serverResponse) + "\n" +
+				"Request: " + ic.toString(request));
+		};
 	}
 
 	/**
@@ -136,26 +135,28 @@ public final class Image
 	public static Image getByPredicate(DockerClient client, Predicate<Image> predicate)
 		throws IOException, InterruptedException, TimeoutException
 	{
+		InternalClient ic = (InternalClient) client;
+
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImageList
-		URI uri = client.getServer().resolve("images/json");
-		Request request = client.createRequest(uri).
+		URI uri = ic.getServer().resolve("images/json");
+		Request request = ic.createRequest(uri).
 			param("digests", "true").
 			method(GET);
 
-		ContentResponse serverResponse = client.send(request);
+		ContentResponse serverResponse = ic.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case OK_200 ->
 			{
 				// success
 			}
-			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
-				"Request: " + client.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + ic.toString(serverResponse) + "\n" +
+				"Request: " + ic.toString(request));
 		}
-		JsonNode body = client.getResponseBody(serverResponse);
+		JsonNode body = ic.getResponseBody(serverResponse);
 		for (JsonNode node : body)
 		{
-			Image image = getByJson(client, node);
+			Image image = getByJson(ic, node);
 			if (predicate.test(image))
 				return image;
 		}
@@ -174,7 +175,7 @@ public final class Image
 	 */
 	public static ImagePuller puller(DockerClient client, String id)
 	{
-		return new ImagePuller(client, id);
+		return new ImagePuller((InternalClient) client, id);
 	}
 
 	/**
@@ -186,7 +187,7 @@ public final class Image
 	 */
 	public static ImageBuilder builder(DockerClient client)
 	{
-		return new ImageBuilder(client);
+		return new ImageBuilder((InternalClient) client);
 	}
 
 	/**
@@ -195,7 +196,7 @@ public final class Image
 	 * @return the image
 	 * @throws NullPointerException if any of the arguments are null
 	 */
-	private static Image getByJson(DockerClient client, JsonNode json)
+	private static Image getByJson(InternalClient client, JsonNode json)
 	{
 		String id = json.get("Id").textValue();
 		Map<String, String> nameToTag = new LinkedHashMap<>();
@@ -219,7 +220,7 @@ public final class Image
 		return new Image(client, id, nameToTag, nameToDigest);
 	}
 
-	private final DockerClient client;
+	private final InternalClient client;
 	private final String id;
 	private final Map<String, String> nameToDigest;
 	private final Map<String, String> nameToTag;
@@ -235,7 +236,7 @@ public final class Image
 	 * @throws IllegalArgumentException if {@code id}, the keys, or values of {@code nameToDigest} or
 	 *                                  {@code nameToTags} contain leading or trailing whitespace, or are empty
 	 */
-	public Image(DockerClient client, String id, Map<String, String> nameToDigest,
+	Image(InternalClient client, String id, Map<String, String> nameToDigest,
 		Map<String, String> nameToTag)
 	{
 		assert that(client, "client").isNotNull().elseThrow();
@@ -332,7 +333,7 @@ public final class Image
 			}
 			case NOT_FOUND_404 ->
 			{
-				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = client.getJsonMapper().readTree(serverResponse.getContentAsString());
 				throw new ImageNotFoundException(json.get("message").textValue());
 			}
 			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
@@ -353,7 +354,7 @@ public final class Image
 	 */
 	public ImagePusher pusher(DockerClient client, String name, String tag)
 	{
-		return new ImagePusher(client, this, name, tag);
+		return new ImagePusher((InternalClient) client, this, name, tag);
 	}
 
 	/**

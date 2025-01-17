@@ -1,7 +1,8 @@
 package com.github.cowwoc.docker.internal.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.github.cowwoc.docker.client.DockerClient;
 import com.github.cowwoc.pouch.core.WrappedCheckedException;
 import org.eclipse.jetty.client.ContentResponse;
 import org.eclipse.jetty.client.Request;
@@ -16,7 +17,7 @@ import java.util.concurrent.TimeoutException;
 /**
  * The internals of a {@code DockerClient}.
  */
-public interface InternalClient
+public interface InternalClient extends DockerClient
 {
 	/**
 	 * Defines the frequency at which it is acceptable to log the same message to indicate that the thread is
@@ -30,7 +31,7 @@ public interface InternalClient
 	 * @return the JSON configuration
 	 * @throws IllegalStateException if the client is closed
 	 */
-	ObjectMapper getObjectMapper();
+	JsonMapper getJsonMapper();
 
 	/**
 	 * Returns the URI of the REST API server.

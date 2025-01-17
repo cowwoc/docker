@@ -2,11 +2,9 @@ package com.github.cowwoc.docker.internal.client;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.github.cowwoc.docker.client.DockerClient;
 import com.github.cowwoc.docker.internal.util.Exceptions;
 import com.github.cowwoc.docker.internal.util.RunMode;
 import com.github.cowwoc.pouch.core.WrappedCheckedException;
@@ -42,7 +40,7 @@ import static org.eclipse.jetty.http.HttpStatus.OK_200;
 /**
  * The client used by the application.
  */
-public final class MainDockerClient implements DockerClient
+public final class MainInternalClient implements InternalClient
 {
 	private static final RunMode RUN_MODE = RunMode.RELEASE;
 	/**
@@ -68,7 +66,7 @@ public final class MainDockerClient implements DockerClient
 	private final URI server;
 	private final Transport transport;
 	private final HttpClientFactory httpClient;
-	private final ObjectMapper objectMapper = JsonMapper.builder().
+	private final JsonMapper jsonMapper = JsonMapper.builder().
 		addModule(new JavaTimeModule()).
 		disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).
 		build();
@@ -85,7 +83,7 @@ public final class MainDockerClient implements DockerClient
 	 *                  {@code Transport.TCP_IP}. For Unix sockets use {@code new Transport.TCPUnix(path)}.
 	 * @throws NullPointerException if any of the arguments are null
 	 */
-	public MainDockerClient(URI server, Transport transport)
+	public MainInternalClient(URI server, Transport transport)
 	{
 		requireThat(server, "server").isNotNull();
 		requireThat(transport, "transport").isNotNull();
@@ -95,10 +93,10 @@ public final class MainDockerClient implements DockerClient
 	}
 
 	@Override
-	public ObjectMapper getObjectMapper()
+	public JsonMapper getJsonMapper()
 	{
 		ensureOpen();
-		return objectMapper;
+		return jsonMapper;
 	}
 
 	@Override
@@ -120,7 +118,7 @@ public final class MainDockerClient implements DockerClient
 		String requestBodyAsString;
 		try
 		{
-			requestBodyAsString = objectMapper.writeValueAsString(requestBody);
+			requestBodyAsString = jsonMapper.writeValueAsString(requestBody);
 		}
 		catch (JsonProcessingException e)
 		{
@@ -161,7 +159,7 @@ public final class MainDockerClient implements DockerClient
 	{
 		try
 		{
-			return objectMapper.readTree(serverResponse.getContentAsString());
+			return jsonMapper.readTree(serverResponse.getContentAsString());
 		}
 		catch (JsonProcessingException e)
 		{

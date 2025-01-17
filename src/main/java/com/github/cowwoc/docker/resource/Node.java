@@ -3,6 +3,7 @@ package com.github.cowwoc.docker.resource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.cowwoc.docker.client.DockerClient;
+import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
 import com.github.cowwoc.requirements10.annotation.CheckReturnValue;
 import org.eclipse.jetty.client.ContentResponse;
@@ -53,7 +54,7 @@ public final class Node
 	public static Node getById(DockerClient client, String id)
 		throws IOException, TimeoutException, InterruptedException
 	{
-		return getByNameOrId(client, id);
+		return getByNameOrId((InternalClient) client, id);
 	}
 
 	/**
@@ -79,7 +80,7 @@ public final class Node
 	public static Node getByName(DockerClient client, String name)
 		throws IOException, TimeoutException, InterruptedException
 	{
-		return getByNameOrId(client, name);
+		return getByNameOrId((InternalClient) client, name);
 	}
 
 	/**
@@ -102,7 +103,7 @@ public final class Node
 	 * @throws InterruptedException     if the thread is interrupted while waiting for a response. This can
 	 *                                  happen due to shutdown signals.
 	 */
-	private static Node getByNameOrId(DockerClient client, String nameOrId)
+	private static Node getByNameOrId(InternalClient client, String nameOrId)
 		throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Node/operation/NodeInspect
@@ -123,13 +124,13 @@ public final class Node
 			}
 			case INTERNAL_SERVER_ERROR_500 ->
 			{
-				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = client.getJsonMapper().readTree(serverResponse.getContentAsString());
 				throw new IOException(json.get("message").textValue());
 			}
 			case SERVICE_UNAVAILABLE_503 ->
 			{
 				// The node is not part of a swarm
-				JsonNode json = client.getObjectMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = client.getJsonMapper().readTree(serverResponse.getContentAsString());
 				throw new IllegalStateException(json.get("message").textValue());
 			}
 			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
@@ -145,7 +146,7 @@ public final class Node
 	 * @return the node
 	 * @throws NullPointerException if any of the arguments are null
 	 */
-	static Node getByJson(DockerClient client, JsonNode json)
+	static Node getByJson(InternalClient client, JsonNode json)
 	{
 		String id = json.get("ID").textValue();
 		int version = client.getVersion(json);
@@ -212,7 +213,7 @@ public final class Node
 			managerAddress, address, labels);
 	}
 
-	private final DockerClient client;
+	private final InternalClient client;
 	private final String id;
 	private final int version;
 	private final String name;
@@ -251,7 +252,7 @@ public final class Node
 	 *                                    <li>any of the mandatory arguments are empty.</li>
 	 *                                  </ul>
 	 */
-	private Node(DockerClient client, String id, int version, String name, String hostname, SwarmRole role,
+	private Node(InternalClient client, String id, int version, String name, String hostname, SwarmRole role,
 		boolean leader, Status status, Reachability reachability, Availability availability,
 		String managerAddress, String address, List<String> labels)
 	{
@@ -431,7 +432,7 @@ public final class Node
 	public Node drain() throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Node/operation/NodeUpdate
-		ObjectNode requestBody = client.getObjectMapper().createObjectNode().
+		ObjectNode requestBody = client.getJsonMapper().createObjectNode().
 			put("Availability", "drain");
 		return update(requestBody);
 	}
@@ -513,7 +514,7 @@ public final class Node
 	public Node setRole(SwarmRole role) throws IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Node/operation/NodeUpdate
-		ObjectNode requestBody = client.getObjectMapper().createObjectNode().
+		ObjectNode requestBody = client.getJsonMapper().createObjectNode().
 			put("Version", version).
 			put("Role", role.toJson());
 		return update(requestBody);

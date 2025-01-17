@@ -1,6 +1,8 @@
 package com.github.cowwoc.docker.resource;
 
-import com.github.cowwoc.docker.client.DockerClient;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.docker.internal.util.DockerfileParser;
 import com.github.cowwoc.docker.internal.util.DockerignoreParser;
 import com.github.cowwoc.docker.internal.util.ImageBuildListener;
@@ -36,11 +38,12 @@ public final class ImageBuilder
 {
 	private final DockerfileParser dockerfileParser = new DockerfileParser();
 	private final DockerignoreParser dockerignoreParser = new DockerignoreParser();
-	private final DockerClient client;
+	private final InternalClient client;
 	private Path buildContext = Path.of(".").toAbsolutePath().normalize();
 	private Path dockerfile = buildContext.resolve("Dockerfile");
 	private final Set<String> platforms = new HashSet<>();
 	private final Set<String> tags = new HashSet<>();
+	private final Set<String> cacheFrom = new HashSet<>();
 
 	/**
 	 * Creates a new instance.
@@ -48,7 +51,7 @@ public final class ImageBuilder
 	 * @param client the client configuration
 	 * @throws NullPointerException if {@code client} is null
 	 */
-	public ImageBuilder(DockerClient client)
+	ImageBuilder(InternalClient client)
 	{
 		requireThat(client, "client").isNotNull();
 		this.client = client;
@@ -115,6 +118,19 @@ public final class ImageBuilder
 	}
 
 	/**
+	 * Adds an external cache source.
+	 *
+	 * @param image the name of the image to use as a cache source
+	 * @return this
+	 */
+	public ImageBuilder cacheFrom(String image)
+	{
+		requireThat(image, "image").isStripped().isNotEmpty();
+		this.cacheFrom.add(image);
+		return this;
+	}
+
+	/**
 	 * Builds the image.
 	 *
 	 * @return the new image
@@ -146,6 +162,14 @@ public final class ImageBuilder
 			request.param("dockerfile", dockerfileAsString);
 		for (String tag : tags)
 			request.param("t", tag);
+		if (!cacheFrom.isEmpty())
+		{
+			JsonMapper jm = client.getJsonMapper();
+			ArrayNode arrayNode = jm.createArrayNode();
+			for (String image : cacheFrom)
+				arrayNode.add(image);
+			request.param("cachefrom", arrayNode.toString());
+		}
 
 		// Per https://docs.docker.com/build/concepts/context/#filename-and-location:
 		// A Dockerfile-specific ignore-file takes precedence over the .dockerignore file at the root of the

@@ -1,6 +1,6 @@
 package com.github.cowwoc.docker.internal.util;
 
-import com.github.cowwoc.docker.client.DockerClient;
+import com.github.cowwoc.docker.internal.client.InternalClient;
 import org.eclipse.jetty.client.Response;
 
 import java.nio.ByteBuffer;
@@ -26,7 +26,7 @@ public abstract class JsonStreamListener extends AsyncResponseListener
 	 * @param client the client configuration
 	 * @throws NullPointerException if {@code client} is null
 	 */
-	protected JsonStreamListener(DockerClient client)
+	protected JsonStreamListener(InternalClient client)
 	{
 		super(client);
 	}

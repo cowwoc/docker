@@ -2,7 +2,7 @@ package com.github.cowwoc.docker.internal.util;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.github.cowwoc.docker.client.DockerClient;
+import com.github.cowwoc.docker.internal.client.InternalClient;
 import org.eclipse.jetty.client.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +17,7 @@ import java.util.concurrent.CountDownLatch;
  */
 public abstract class AsyncResponseListener implements Response.Listener
 {
-	protected final DockerClient client;
+	protected final InternalClient client;
 	/**
 	 * The exception that was thrown by the listener.
 	 */
@@ -34,7 +34,7 @@ public abstract class AsyncResponseListener implements Response.Listener
 	 * @param client the client configuration
 	 * @throws NullPointerException if {@code client} is null
 	 */
-	protected AsyncResponseListener(DockerClient client)
+	protected AsyncResponseListener(InternalClient client)
 	{
 		this.client = client;
 	}
@@ -49,7 +49,7 @@ public abstract class AsyncResponseListener implements Response.Listener
 	{
 		try
 		{
-			JsonNode json = client.getObjectMapper().readTree(objectAsString);
+			JsonNode json = client.getJsonMapper().readTree(objectAsString);
 			JsonNode node = json.get("message");
 			if (node != null)
 			{
@@ -61,8 +61,8 @@ public abstract class AsyncResponseListener implements Response.Listener
 			node = json.get("errorDetail");
 			if (node != null)
 			{
-				warnOnUnexpectedProperties(json, "errorDetail");
-				warnOnUnexpectedProperties(node, "message");
+				warnOnUnexpectedProperties(json, "errorDetail", "error");
+				warnOnUnexpectedProperties(node, "code", "message");
 				String message = node.get("message").textValue();
 				log.error(message);
 

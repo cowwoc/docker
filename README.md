@@ -3,7 +3,7 @@
 
 # <img src="docs/logo.svg" width=64 height=64 alt="logo"> Docker Java Client
 
-[![API](https://img.shields.io/badge/api_docs-5B45D5.svg)](https://cowwoc.github.io/docker/0.5/)
+[![API](https://img.shields.io/badge/api_docs-5B45D5.svg)](https://cowwoc.github.io/docker/0.6/)
 [![Changelog](https://img.shields.io/badge/changelog-A345D5.svg)](docs/changelog.md)
 
 A Java client for [Docker](https://www.docker.com/).
@@ -14,7 +14,7 @@ To get started, add this Maven dependency:
 <dependency>
   <groupId>com.github.cowwoc.docker</groupId>
   <artifactId>docker</artifactId>
-  <version>0.5</version>
+  <version>0.6</version>
 </dependency>
 ```
 
@@ -32,13 +32,13 @@ import java.util.concurrent.TimeoutException;
 class Example
 {
   public static void main(String[] args)
-    throws IOException, TimeoutException, InterruptedException, ImageNotFoundException
+    throws IOException, TimeoutException, InterruptedException
   {
     try (DockerClient client = DockerClient.usingUnixSocket(Path.of("/var/run/docker.sock")))
     {
       Image image = Image.builder(client).platform("linux/amd64").build();
       Image image2 = Image.getById(client, image.getId());
-      assert (image2.equals(image));
+      assert (image.equals(image2));
 
       image.tag("rocket-ship", "local-tag");
       image.pusher(client, "rocket-ship", "remote-tag").
@@ -51,7 +51,7 @@ class Example
 
 ## Getting Started
 
-See the [API documentation](https://cowwoc.github.io/docker/0.5/) for more details.
+See the [API documentation](https://cowwoc.github.io/docker/0.6/) for more details.
 
 ## Licenses
 

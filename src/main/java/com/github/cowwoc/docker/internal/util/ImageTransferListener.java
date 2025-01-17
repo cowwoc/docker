@@ -2,8 +2,8 @@ package com.github.cowwoc.docker.internal.util;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.github.cowwoc.docker.client.DockerClient;
 import com.github.cowwoc.docker.exception.ImageNotFoundException;
+import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.pouch.core.WrappedCheckedException;
 import org.eclipse.jetty.client.Response;
 import org.eclipse.jetty.client.Result;
@@ -38,7 +38,7 @@ public final class ImageTransferListener extends JsonStreamListener
 	 * @param client the client configuration
 	 * @throws NullPointerException if {@code client} is null
 	 */
-	public ImageTransferListener(DockerClient client)
+	public ImageTransferListener(InternalClient client)
 	{
 		super(client);
 	}
@@ -128,7 +128,7 @@ public final class ImageTransferListener extends JsonStreamListener
 	{
 		try
 		{
-			return client.getObjectMapper().readTree(responseAsString.toString());
+			return client.getJsonMapper().readTree(responseAsString.toString());
 		}
 		catch (JsonProcessingException e)
 		{

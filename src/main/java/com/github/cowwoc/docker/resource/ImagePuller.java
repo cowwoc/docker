@@ -2,8 +2,8 @@ package com.github.cowwoc.docker.resource;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.github.cowwoc.docker.client.DockerClient;
 import com.github.cowwoc.docker.exception.ImageNotFoundException;
+import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.docker.internal.util.ImageTransferListener;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
 import com.github.cowwoc.pouch.core.WrappedCheckedException;
@@ -24,7 +24,7 @@ import static org.eclipse.jetty.http.HttpMethod.POST;
  */
 public final class ImagePuller
 {
-	private final DockerClient client;
+	private final InternalClient client;
 	private final String id;
 	private String platform = "";
 	private ObjectNode credentials;
@@ -37,7 +37,7 @@ public final class ImagePuller
 	 * @throws NullPointerException     if any of the arguments are null
 	 * @throws IllegalArgumentException if {@code id} contains leading or trailing whitespace or is empty
 	 */
-	public ImagePuller(DockerClient client, String id)
+	ImagePuller(InternalClient client, String id)
 	{
 		requireThat(client, "client").isNotNull();
 		// WORKAROUND: https://github.com/docker/docs/issues/21793
@@ -98,7 +98,7 @@ public final class ImagePuller
 		requireThat(serverAddress, "serverAddress").isNotNull().isStripped();
 
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#section/Authentication
-		ObjectNode credentials = client.getObjectMapper().createObjectNode();
+		ObjectNode credentials = client.getJsonMapper().createObjectNode();
 		credentials.put("username", username);
 		credentials.put("password", password);
 		this.credentials = credentials;
@@ -108,15 +108,14 @@ public final class ImagePuller
 	/**
 	 * Pulls the image from the remote registry.
 	 *
-	 * @return the image
-	 * @throws IllegalStateException  if the client is closed
-	 * @throws ImageNotFoundException if the referenced image could not be found
-	 * @throws IOException            if an I/O error occurs. These errors are typically transient, and retrying
-	 *                                the request may resolve the issue.
-	 * @throws TimeoutException       if the request times out before receiving a response. This might indicate
-	 *                                network latency or server overload.
-	 * @throws InterruptedException   if the thread is interrupted while waiting for a response. This can happen
-	 *                                due to shutdown signals.
+	 * @return null if no match is found
+	 * @throws IllegalStateException if the client is closed
+	 * @throws IOException           if an I/O error occurs. These errors are typically transient, and retrying
+	 *                               the request may resolve the issue.
+	 * @throws TimeoutException      if the request times out before receiving a response. This might indicate
+	 *                               network latency or server overload.
+	 * @throws InterruptedException  if the thread is interrupted while waiting for a response. This can happen
+	 *                               due to shutdown signals.
 	 */
 	public Image pull() throws IOException, TimeoutException, InterruptedException
 	{
@@ -132,7 +131,7 @@ public final class ImagePuller
 			String credentialsAsString;
 			try
 			{
-				credentialsAsString = client.getObjectMapper().writeValueAsString(credentials);
+				credentialsAsString = client.getJsonMapper().writeValueAsString(credentials);
 			}
 			catch (JsonProcessingException e)
 			{
@@ -149,6 +148,8 @@ public final class ImagePuller
 		IOException exception = responseListener.getException();
 		if (exception != null)
 		{
+			if (exception instanceof ImageNotFoundException)
+				return null;
 			// Need to wrap the exception to ensure that it contains stack trace elements from the current thread
 			throw new IOException(exception);
 		}

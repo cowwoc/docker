@@ -1,7 +1,7 @@
 package com.github.cowwoc.docker.resource;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.github.cowwoc.docker.client.DockerClient;
+import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
 
 import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.requireThat;
@@ -17,7 +17,7 @@ public final class Task
 	 * @return the task
 	 * @throws NullPointerException if any of the arguments are null
 	 */
-	static Task getByJson(DockerClient client, JsonNode json)
+	static Task getByJson(InternalClient client, JsonNode json)
 	{
 		String id = json.get("ID").textValue();
 		int version = client.getVersion(json);
