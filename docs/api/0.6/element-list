@@ -1,0 +1,4 @@
+module:com.github.cowwoc.docker
+com.github.cowwoc.docker.client
+com.github.cowwoc.docker.exception
+com.github.cowwoc.docker.resource
