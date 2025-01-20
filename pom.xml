@@ -52,7 +52,7 @@
 		<pmd.version>7.9.0</pmd.version>
 		<maven.checkstyle.version>3.6.0</maven.checkstyle.version>
 		<checkstyle.failOnViolation>true</checkstyle.failOnViolation>
-		<requirements.version>10.9</requirements.version>
+		<requirements.version>10.11</requirements.version>
 	</properties>
 
 	<dependencies>
