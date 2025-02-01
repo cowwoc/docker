@@ -106,9 +106,9 @@ public final class ImagePuller
 	}
 
 	/**
-	 * Pulls the image from the remote registry.
+	 * Pulls the image from the remote repository.
 	 *
-	 * @return null if no match is found
+	 * @return null if the repository does not exist or may require {@code docker login}
 	 * @throws IllegalStateException if the client is closed
 	 * @throws IOException           if an I/O error occurs. These errors are typically transient, and retrying
 	 *                               the request may resolve the issue.
@@ -143,7 +143,7 @@ public final class ImagePuller
 
 		ImageTransferListener responseListener = new ImageTransferListener(client);
 		client.send(request, responseListener);
-		if (!responseListener.getExceptionReady().await(5, TimeUnit.MINUTES))
+		if (!responseListener.getRequestComplete().await(5, TimeUnit.MINUTES))
 			throw new TimeoutException();
 		IOException exception = responseListener.getException();
 		if (exception != null)
@@ -153,9 +153,7 @@ public final class ImagePuller
 			// Need to wrap the exception to ensure that it contains stack trace elements from the current thread
 			throw new IOException(exception);
 		}
-
-		String localId = client.removeRegistry(id);
-		return Image.getById(client, localId);
+		return Image.getById(client, id);
 	}
 
 	@Override

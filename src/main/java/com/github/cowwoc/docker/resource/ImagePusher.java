@@ -163,7 +163,7 @@ public final class ImagePusher
 
 		ImageTransferListener responseListener = new ImageTransferListener(client);
 		client.send(request, responseListener);
-		if (!responseListener.getExceptionReady().await(5, TimeUnit.MINUTES))
+		if (!responseListener.getRequestComplete().await(5, TimeUnit.MINUTES))
 			throw new TimeoutException();
 		IOException exception = responseListener.getException();
 		if (exception != null)

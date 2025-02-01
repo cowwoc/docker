@@ -147,7 +147,7 @@ public final class ContainerLogs
 	public LogStreams stream() throws IOException, TimeoutException, InterruptedException
 	{
 		if (!stdout && !stderr)
-			return new LogStreams(null, null);
+			return new LogStreams(null, null, null);
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Container/operation/ContainerLogs
 		URI uri = client.getServer().resolve("containers/" + id + "/logs");
 		Request request = client.createRequest(uri);
@@ -177,22 +177,11 @@ public final class ContainerLogs
 		PipedInputStream stdoutForReading = new PipedInputStream(stdoutForWriting);
 		@SuppressWarnings("PMD.CloseResource")
 		PipedInputStream stderrForReading = new PipedInputStream(stderrForWriting);
-		LogStreams streams = new LogStreams(stdoutForReading, stderrForReading);
-		LogListener logListener = new LogListener(client, stdoutForWriting, stderrForWriting);
+		LogStreams streams = new LogStreams(stdoutForReading, stderrForReading, request);
+		LogListener logListener = new LogListener(client, stdoutForWriting, stderrForWriting, streams);
 		client.send(request, logListener);
-		if (!logListener.getExceptionReady().await(5, TimeUnit.MINUTES))
+		if (!logListener.getRequestComplete().await(5, TimeUnit.MINUTES))
 			throw new TimeoutException();
-		IOException exception = logListener.getException();
-		if (exception != null)
-		{
-			stdoutForWriting.close();
-			stderrForWriting.close();
-			stdoutForReading.close();
-			stderrForReading.close();
-
-			// Need to wrap the exception to ensure that it contains stack trace elements from the current thread
-			throw new IOException(exception);
-		}
 		return streams;
 	}
 

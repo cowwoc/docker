@@ -6,6 +6,7 @@ import org.eclipse.jetty.client.Response;
 import org.eclipse.jetty.client.Result;
 
 import java.io.IOException;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static org.eclipse.jetty.http.HttpStatus.INTERNAL_SERVER_ERROR_500;
 import static org.eclipse.jetty.http.HttpStatus.OK_200;
@@ -14,12 +15,9 @@ import static org.eclipse.jetty.util.BufferUtil.EMPTY_BUFFER;
 /**
  * Logs the output of "docker build" incrementally.
  */
+@SuppressWarnings("ClassEscapesDefinedScope")
 public final class ImageBuildListener extends JsonStreamListener
 {
-	/**
-	 * Lines to log using the {@code INFO} level.
-	 */
-	private final StringBuilder linesToLog = new StringBuilder();
 	public String imageId;
 
 	/**
@@ -30,7 +28,7 @@ public final class ImageBuildListener extends JsonStreamListener
 	 */
 	public ImageBuildListener(InternalClient client)
 	{
-		super(client);
+		super(client, new LinkedBlockingQueue<>());
 	}
 
 	@Override
@@ -47,48 +45,51 @@ public final class ImageBuildListener extends JsonStreamListener
 		node = json.get("aux");
 		if (node != null)
 		{
-			assert (imageId == null);
 			warnOnUnexpectedProperties(json, "aux");
 			warnOnUnexpectedProperties(node, "ID");
+			assert (imageId == null);
 			JsonNode idNode = node.get("ID");
 			imageId = idNode.textValue();
 			return;
 		}
-		IOException e = new IOException("Unexpected response: " + json.toPrettyString());
-		if (exception != null)
-			e.addSuppressed(exception);
-		exception = e;
+		// BUG: https://github.com/docker/docs/issues/21803
+		if (json.has("status"))
+		{
+			processStatus(json);
+			return;
+		}
+		exceptions.add(new IOException("Unexpected response: " + json.toPrettyString()));
 	}
 
 	@Override
 	public void onComplete(Result result)
 	{
-		decodeBytes(EMPTY_BUFFER, true);
-		processResponse(true);
-		if (!linesToLog.isEmpty())
-			log.info(linesToLog.toString());
-
-		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImageBuild
-		Response response = result.getResponse();
-		switch (response.getStatus())
+		try
 		{
-			case OK_200 -> processResponse(true);
-			case INTERNAL_SERVER_ERROR_500 ->
+			if (result.getRequestFailure() != null)
+				exceptions.add(result.getRequestFailure());
+			if (result.getResponseFailure() != null)
+				exceptions.add(result.getResponseFailure());
+			decodeBytes(EMPTY_BUFFER, true);
+			processResponse(true);
+			if (!linesToLog.isEmpty())
+				log.info(linesToLog.toString());
+
+			// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImageBuild
+			Response response = result.getResponse();
+			switch (response.getStatus())
 			{
-				IOException e = new IOException(responseAsString.toString());
-				if (exception != null)
-					e.addSuppressed(exception);
-				exception = e;
-			}
-			default ->
-			{
-				IOException ioe = new IOException("Unexpected response: " + client.toString(response) + "\n" +
-					"Request: " + client.toString(result.getRequest()));
-				if (exception != null)
-					ioe.addSuppressed(exception);
-				exception = ioe;
+				case OK_200 -> processResponse(true);
+				case INTERNAL_SERVER_ERROR_500 -> exceptions.add(
+					new IOException("Unexpected response: " + responseAsString + "\n" +
+						"Request: " + client.toString(result.getRequest())));
+				default -> exceptions.add(new IOException("Unexpected response: " + client.toString(response) + "\n" +
+					"Request: " + client.toString(result.getRequest())));
 			}
 		}
-		exceptionReady.countDown();
+		finally
+		{
+			responseReady.countDown();
+		}
 	}
 }

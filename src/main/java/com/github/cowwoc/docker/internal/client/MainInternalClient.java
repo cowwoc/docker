@@ -362,16 +362,6 @@ public final class MainInternalClient implements InternalClient
 		return response.getVersion() + " " + response.getStatus() + " (\"" + reason + "\")";
 	}
 
-	@Override
-	public String removeRegistry(String id)
-	{
-		// Format: <registry>/<namespace>/<image>
-		String[] components = id.split("/", 3);
-		if (components.length == 3)
-			return components[1] + "/" + components[2];
-		return id;
-	}
-
 	/**
 	 * Ensures that the client is open.
 	 *

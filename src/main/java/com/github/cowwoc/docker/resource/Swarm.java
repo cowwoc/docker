@@ -185,44 +185,6 @@ public class Swarm
 	}
 
 	/**
-	 * Looks up a node by its ID.
-	 *
-	 * @param id the ID of a node
-	 * @return {@code null} if no match is found
-	 * @throws NullPointerException     if {@code id} is null
-	 * @throws IllegalArgumentException if {@code id} contains leading or trailing whitespace or is empty
-	 * @throws IOException              if an I/O error occurs. These errors are typically transient, and
-	 *                                  retrying the request may resolve the issue.
-	 * @throws TimeoutException         if the request times out before receiving a response. This might
-	 *                                  indicate network latency or server overload.
-	 * @throws InterruptedException     if the thread is interrupted while waiting for a response. This can
-	 *                                  happen due to shutdown signals.
-	 */
-	public Node getNodeById(String id) throws IOException, TimeoutException, InterruptedException
-	{
-		return Node.getById(client, id);
-	}
-
-	/**
-	 * Looks up a node by its name.
-	 *
-	 * @param name the name of a node
-	 * @return {@code null} if no match is found
-	 * @throws NullPointerException     if {@code name} is null
-	 * @throws IllegalArgumentException if {@code name} contains leading or trailing whitespace or is empty
-	 * @throws IOException              if an I/O error occurs. These errors are typically transient, and
-	 *                                  retrying the request may resolve the issue.
-	 * @throws TimeoutException         if the request times out before receiving a response. This might
-	 *                                  indicate network latency or server overload.
-	 * @throws InterruptedException     if the thread is interrupted while waiting for a response. This can
-	 *                                  happen due to shutdown signals.
-	 */
-	public Node getNodeByName(String name) throws IOException, TimeoutException, InterruptedException
-	{
-		return Node.getByName(client, name);
-	}
-
-	/**
 	 * Returns the manager nodes with a READY status.
 	 *
 	 * @return the manager nodes with a READY status

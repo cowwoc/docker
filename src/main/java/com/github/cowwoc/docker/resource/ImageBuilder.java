@@ -152,12 +152,13 @@ public final class ImageBuilder
 		URI uri = client.getServer().resolve("build");
 		Request request = client.createRequest(uri).
 			param("platform", String.join(",", platforms));
+//			param("version", "2");
 		// Path.relativize() requires both Paths to be relative or absolute
 		Path absoluteBuildContext = buildContext.toAbsolutePath().normalize();
-		Path dockerfile = absoluteBuildContext.relativize(this.dockerfile.toAbsolutePath().normalize());
+		Path dockerfileAsPath = absoluteBuildContext.relativize(this.dockerfile.toAbsolutePath().normalize());
 
 		// TarArchiveEntry converts Windows-style slashes to / so we need to do the same
-		String dockerfileAsString = dockerfile.toString().replace('\\', '/');
+		String dockerfileAsString = dockerfileAsPath.toString().replace('\\', '/');
 		if (!dockerfileAsString.equals("Dockerfile"))
 			request.param("dockerfile", dockerfileAsString);
 		for (String tag : tags)
@@ -168,17 +169,19 @@ public final class ImageBuilder
 			ArrayNode arrayNode = jm.createArrayNode();
 			for (String image : cacheFrom)
 				arrayNode.add(image);
-			request.param("cachefrom", arrayNode.toString());
+			if (!arrayNode.isEmpty())
+				request.param("cachefrom", arrayNode.toString());
 		}
+
+		Predicate<Path> dockerFilePredicate = dockerfileParser.parse(dockerfileAsPath, absoluteBuildContext);
 
 		// Per https://docs.docker.com/build/concepts/context/#filename-and-location:
 		// A Dockerfile-specific ignore-file takes precedence over the .dockerignore file at the root of the
 		// build context if both exist.
-		Path dockerignore = this.dockerfile.resolveSibling(this.dockerfile.getFileName() + ".dockerignore");
+		Path dockerignore = dockerfile.resolveSibling(dockerfile.getFileName() + ".dockerignore");
 		if (Files.notExists(dockerignore))
 			dockerignore = buildContext.resolve(".dockerignore");
 
-		Predicate<Path> dockerFilePredicate = dockerfileParser.parse(dockerfile, absoluteBuildContext);
 		Predicate<Path> buildContextPredicate;
 		if (Files.exists(dockerignore))
 		{
@@ -194,7 +197,7 @@ public final class ImageBuilder
 
 		ImageBuildListener responseListener = new ImageBuildListener(client);
 		client.send(request, responseListener);
-		if (!responseListener.getExceptionReady().await(5, TimeUnit.MINUTES))
+		if (!responseListener.getRequestComplete().await(5, TimeUnit.MINUTES))
 			throw new TimeoutException();
 		IOException exception = responseListener.getException();
 		if (exception != null)

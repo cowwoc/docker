@@ -9,9 +9,7 @@ import org.eclipse.jetty.client.Response;
 import org.eclipse.jetty.client.Result;
 
 import java.io.IOException;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static org.eclipse.jetty.http.HttpStatus.FORBIDDEN_403;
 import static org.eclipse.jetty.http.HttpStatus.INTERNAL_SERVER_ERROR_500;
@@ -22,16 +20,9 @@ import static org.eclipse.jetty.util.BufferUtil.EMPTY_BUFFER;
 /**
  * Logs the output of "docker push" or "docker pull" incrementally.
  */
+@SuppressWarnings("ClassEscapesDefinedScope")
 public final class ImageTransferListener extends JsonStreamListener
 {
-	/**
-	 * Defines the frequency at which it is acceptable to log the same message to indicate that the thread is
-	 * still active. This helps in monitoring the progress and ensuring the thread has not become unresponsive.
-	 */
-	private static final Duration PROGRESS_FREQUENCY = Duration.ofSeconds(2);
-	private final AtomicReference<String> lastStatus = new AtomicReference<>("");
-	private final AtomicReference<Instant> timeOfLastStatus = new AtomicReference<>(Instant.MIN);
-
 	/**
 	 * Creates a new instance.
 	 *
@@ -40,35 +31,18 @@ public final class ImageTransferListener extends JsonStreamListener
 	 */
 	public ImageTransferListener(InternalClient client)
 	{
-		super(client);
+		super(client, new LinkedBlockingQueue<>());
 	}
 
 	@Override
 	protected void processUnknownProperties(JsonNode json)
 	{
-		JsonNode node = json.get("status");
-		if (node != null)
+		if (json.has("status"))
 		{
-			warnOnUnexpectedProperties(json, "status", "id");
-			String status = node.textValue();
-			String id = node.get("id").textValue();
-
-			Instant now = Instant.now();
-			String message = status + ", id: " + id;
-			if (!status.equals(lastStatus.get()) ||
-				Duration.between(timeOfLastStatus.get(), now).compareTo(PROGRESS_FREQUENCY) >= 0)
-			{
-				// Only log the status if it's changed or PROGRESS_FREQUENCY has elapsed
-				lastStatus.set(message);
-				timeOfLastStatus.set(now);
-				log.info(message);
-			}
+			processStatus(json);
 			return;
 		}
-		IOException e = new IOException("Unexpected response: " + json.toPrettyString());
-		if (exception != null)
-			e.addSuppressed(exception);
-		exception = e;
+		exceptions.add(new IOException("Unexpected response: " + json.toPrettyString()));
 	}
 
 	@Override
@@ -76,6 +50,10 @@ public final class ImageTransferListener extends JsonStreamListener
 	{
 		try
 		{
+			if (result.getRequestFailure() != null)
+				exceptions.add(result.getRequestFailure());
+			if (result.getResponseFailure() != null)
+				exceptions.add(result.getResponseFailure());
 			Response response = result.getResponse();
 			decodeBytes(EMPTY_BUFFER, true);
 			switch (response.getStatus())
@@ -85,39 +63,21 @@ public final class ImageTransferListener extends JsonStreamListener
 				{
 					// Example: Surpassed storage quota
 					JsonNode body = getResponseBody();
-					IOException e = new IOException(body.get("message").textValue());
-					if (exception != null)
-						e.addSuppressed(exception);
-					exception = e;
+					exceptions.add(new IOException(body.get("message").textValue()));
 				}
 				case NOT_FOUND_404 ->
 				{
 					JsonNode body = getResponseBody();
-					ImageNotFoundException e = new ImageNotFoundException(body.get("message").textValue());
-					if (exception != null)
-						e.addSuppressed(exception);
-					exception = e;
+					exceptions.add(new ImageNotFoundException(body.get("message").textValue()));
 				}
-				case INTERNAL_SERVER_ERROR_500 ->
-				{
-					IOException e = new IOException(responseAsString.toString());
-					if (exception != null)
-						e.addSuppressed(exception);
-					exception = e;
-				}
-				default ->
-				{
-					IOException ioe = new IOException("Unexpected response: " + client.toString(response) + "\n" +
-						"Request: " + client.toString(result.getRequest()));
-					if (exception != null)
-						ioe.addSuppressed(exception);
-					exception = ioe;
-				}
+				case INTERNAL_SERVER_ERROR_500 -> exceptions.add(new IOException(responseAsString.toString()));
+				default -> exceptions.add(new IOException("Unexpected response: " + client.toString(response) + "\n" +
+					"Request: " + client.toString(result.getRequest())));
 			}
 		}
 		finally
 		{
-			exceptionReady.countDown();
+			responseReady.countDown();
 		}
 	}
 

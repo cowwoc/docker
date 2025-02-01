@@ -15,6 +15,8 @@ import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.requir
  */
 public abstract class GlobParser
 {
+	protected final Set<PatternPredicate> patterns = new HashSet<>();
+
 	/**
 	 * Creates a new instance.
 	 */
@@ -159,6 +161,9 @@ public abstract class GlobParser
 			}
 		}
 
+		// If the last component is a directory, include all its files recursively
+		regex.append("(?:/.*)?");
+
 		predicates.add(new PatternPredicate(regex.toString(), buildContext, excludes, why));
 		return predicates;
 	}
@@ -218,6 +223,7 @@ public abstract class GlobParser
 		 */
 		public PatternPredicate(String regex, Path buildContext, boolean excludes, String why)
 		{
+			// An empty regex matches the directory of the build context
 			requireThat(regex, "regex").isStripped();
 			requireThat(buildContext, "buildContext").isNotNull();
 			requireThat(why, "why").isStripped().isNotEmpty();

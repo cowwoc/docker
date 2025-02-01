@@ -1,5 +1,6 @@
 package com.github.cowwoc.docker.internal.util;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.github.cowwoc.docker.internal.client.InternalClient;
 import org.eclipse.jetty.client.Response;
 
@@ -8,27 +9,50 @@ import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Processes JSON objects returned by a server response.
  */
+@SuppressWarnings("ClassEscapesDefinedScope")
 public abstract class JsonStreamListener extends AsyncResponseListener
 {
+	/**
+	 * Defines the frequency at which it is acceptable to log the same message to indicate that the thread is
+	 * still active. This helps in monitoring the progress and ensuring the thread has not become unresponsive.
+	 */
+	protected static final Duration PROGRESS_FREQUENCY = Duration.ofSeconds(2);
 	private final CharsetDecoder decoder = UTF_8.newDecoder();
 	private final CharBuffer charBuffer = CharBuffer.allocate(200);
 	protected final StringBuilder responseAsString = new StringBuilder();
+	/**
+	 * The last message that was logged.
+	 */
+	protected final AtomicReference<String> lastMessage = new AtomicReference<>("");
+	/**
+	 * The time that the last message was logged.
+	 */
+	protected final AtomicReference<Instant> timeOfLastMessage = new AtomicReference<>(Instant.MIN);
+	/**
+	 * Lines of text that were returned by the server for logging by the client.
+	 */
+	protected final StringBuilder linesToLog = new StringBuilder();
 
 	/**
 	 * Creates a new instance.
 	 *
-	 * @param client the client configuration
-	 * @throws NullPointerException if {@code client} is null
+	 * @param client     the client configuration
+	 * @param exceptions a container for exceptions that are thrown by the operation
+	 * @throws NullPointerException if any of the arguments are null
 	 */
-	protected JsonStreamListener(InternalClient client)
+	protected JsonStreamListener(InternalClient client, BlockingQueue<Throwable> exceptions)
 	{
-		super(client);
+		super(client, exceptions);
 	}
 
 	@Override
@@ -62,9 +86,7 @@ public abstract class JsonStreamListener extends AsyncResponseListener
 		}
 		catch (CharacterCodingException e)
 		{
-			if (exception != null)
-				e.addSuppressed(exception);
-			exception = e;
+			exceptions.add(e);
 		}
 	}
 
@@ -88,5 +110,30 @@ public abstract class JsonStreamListener extends AsyncResponseListener
 		}
 		if (endOfInput && !responseAsString.isEmpty())
 			processObject(responseAsString.toString());
+	}
+
+	/**
+	 * Process a "status" message returned by the server.
+	 *
+	 * @param node a node that contains a "status" property
+	 * @throws NullPointerException if {@code node} is null
+	 */
+	protected void processStatus(JsonNode node)
+	{
+		warnOnUnexpectedProperties(node, "status", "id");
+		String message = node.get("status").textValue() + "\n";
+		if (node.has("id"))
+			message = node.get("id").textValue() + ": " + message;
+
+		Instant now = Instant.now();
+		if (!message.equals(lastMessage.get()) ||
+			Duration.between(timeOfLastMessage.get(), now).compareTo(PROGRESS_FREQUENCY) >= 0)
+		{
+			// Only log the status if it's changed or PROGRESS_FREQUENCY has elapsed
+			lastMessage.set(message);
+			timeOfLastMessage.set(now);
+			linesToLog.append(message);
+			Strings.logLines(linesToLog, log);
+		}
 	}
 }

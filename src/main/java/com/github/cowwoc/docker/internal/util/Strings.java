@@ -59,7 +59,7 @@ public final class Strings
 	 */
 	private static String nextLine(StringBuilder lines)
 	{
-		int index = lines.indexOf("\r\n");
+		int index = lines.indexOf("\n");
 		if (index != -1)
 		{
 			String line = lines.substring(0, index);

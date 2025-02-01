@@ -11,10 +11,13 @@ import org.eclipse.jetty.client.Request;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 
@@ -199,69 +202,87 @@ public final class Image
 	private static Image getByJson(InternalClient client, JsonNode json)
 	{
 		String id = json.get("Id").textValue();
-		Map<String, String> nameToTag = new LinkedHashMap<>();
+		Map<String, Set<String>> nameToTags = new LinkedHashMap<>();
 		for (JsonNode nameAndTag : json.get("RepoTags"))
 		{
-			String[] tokens = nameAndTag.textValue().split(":");
-			assert that(tokens, "tokens").length().isEqualTo(2).elseThrow();
+			// Format: registry:optionalPort/repository/image:tag
+			String nameAndTagAsString = nameAndTag.textValue();
+			int lastColon = nameAndTagAsString.lastIndexOf(':');
+			assert that(lastColon, "lastColon").withContext(nameAndTagAsString, "nameAndTag").isNotEqualTo(-1).
+				elseThrow();
 
-			if (!tokens[0].equals("<none>") && !tokens[1].equals("<none>"))
-				nameToTag.put(tokens[0], tokens[1]);
+			String name = nameAndTagAsString.substring(0, lastColon);
+			String tag = nameAndTagAsString.substring(lastColon);
+
+			nameToTags.computeIfAbsent(name, _ -> new HashSet<>()).add(tag);
 		}
 		Map<String, String> nameToDigest = new LinkedHashMap<>();
 		for (JsonNode nameAndDigest : json.get("RepoDigests"))
 		{
-			String[] tokens = nameAndDigest.textValue().split("@");
-			assert that(tokens, "tokens").length().isEqualTo(2).elseThrow();
+			String[] nameAndDigestAsString = nameAndDigest.textValue().split("@");
+			assert that(nameAndDigestAsString, "nameAndDigestAsString").length().isEqualTo(2).elseThrow();
 
-			if (!tokens[0].equals("<none>") && !tokens[1].equals("<none>"))
-				nameToDigest.put(tokens[0], tokens[1]);
+			String name = nameAndDigestAsString[0];
+			String digest = nameAndDigestAsString[1];
+
+			if (!name.equals("<none>") && !digest.equals("<none>"))
+				nameToDigest.put(name, digest);
 		}
-		return new Image(client, id, nameToTag, nameToDigest);
+		return new Image(client, id, nameToTags, nameToDigest);
 	}
 
 	private final InternalClient client;
 	private final String id;
+	private final Map<String, Set<String>> nameToTags;
 	private final Map<String, String> nameToDigest;
-	private final Map<String, String> nameToTag;
 
 	/**
 	 * Creates a new reference to a docker image.
 	 *
 	 * @param client       the client configuration
 	 * @param id           the ID of the image
-	 * @param nameToDigest a mapping from each image's name to its digest
-	 * @param nameToTag    a mapping from each image's name to its tag
+	 * @param nameToTags   a mapping from each image's name to its tags
+	 * @param nameToDigest a mapping from each image's name on remote repositories to its digest
 	 * @throws NullPointerException     if any of the arguments are null
-	 * @throws IllegalArgumentException if {@code id}, the keys, or values of {@code nameToDigest} or
-	 *                                  {@code nameToTags} contain leading or trailing whitespace, or are empty
+	 * @throws IllegalArgumentException if {@code id}, the keys, or values of {@code nameToTags} or
+	 *                                  {@code nameToDigest} contain leading or trailing whitespace, or are
+	 *                                  empty
 	 */
-	Image(InternalClient client, String id, Map<String, String> nameToDigest,
-		Map<String, String> nameToTag)
+	Image(InternalClient client, String id, Map<String, Set<String>> nameToTags,
+		Map<String, String> nameToDigest)
 	{
 		assert that(client, "client").isNotNull().elseThrow();
 		assert that(id, "id").isStripped().isNotEmpty().elseThrow();
-		assert that(nameToDigest, "nameToDigest").isNotNull().elseThrow();
+		assert that(nameToTags, "nameToTags").isNotNull().elseThrow();
+		for (Entry<String, Set<String>> entry : nameToTags.entrySet())
+		{
+			assert that(entry.getKey(), "name").withContext(nameToTags, "nameToTags").isStripped().
+				isNotEmpty().elseThrow();
+			for (String tag : entry.getValue())
+			{
+				assert that(tag, "tag").withContext(nameToTags, "nameToTags").isStripped().isNotEmpty().
+					elseThrow();
+			}
+		}
 
+		assert that(nameToDigest, "nameToDigests").isNotNull().elseThrow();
 		for (Entry<String, String> entry : nameToDigest.entrySet())
 		{
-			assert that(entry.getKey(), "name").withContext(nameToDigest, "nameToDigest").isStripped().
+			assert that(entry.getKey(), "name").withContext(nameToDigest, "nameToDigests").isStripped().
 				isNotEmpty().elseThrow();
-			assert that(entry.getValue(), "tag").withContext(nameToDigest, "nameToDigest").isStripped().
-				isNotEmpty().elseThrow();
-		}
-		assert that(nameToTag, "nameToTags").isNotNull().elseThrow();
-		for (Entry<String, String> entry : nameToTag.entrySet())
-		{
-			assert that(entry.getKey(), "name").withContext(nameToTag, "nameToTag").isStripped().
-				isNotEmpty().elseThrow();
-			assert that(entry.getValue(), "tag").withContext(nameToTag, "nameToTag").isStripped().
+			assert that(entry.getValue(), "digest").withContext(nameToDigest, "nameToDigests").isStripped().
 				isNotEmpty().elseThrow();
 		}
 		this.id = id;
 		this.client = client;
+
+		// Create immutable copies of the tags
+		Map<String, Set<String>> nameToImmutableTags = new HashMap<>();
+		for (Entry<String, Set<String>> entry : nameToTags.entrySet())
+			nameToImmutableTags.put(entry.getKey(), Set.copyOf(entry.getValue()));
+		// Create an immutable copy of the outer map
+		this.nameToTags = Map.copyOf(nameToImmutableTags);
 		this.nameToDigest = Map.copyOf(nameToDigest);
-		this.nameToTag = Map.copyOf(nameToTag);
 	}
 
 	/**
@@ -275,9 +296,27 @@ public final class Image
 	}
 
 	/**
-	 * Returns a mapping from the image's name to its digest.
+	 * Returns a mapping of an image's name to its associated tags.
+	 * <p>
+	 * Locally, an image might have a name such as {@code nasa/rocket-ship} with tags {@code {"1.0", "latest"}},
+	 * all referring to the same revision. In a remote repository, the same image could have a fully qualified
+	 * name like {@code docker.io/nasa/rocket-ship} and be associated with multiple tags, such as
+	 * {@code {"1.0", "2.0", "latest"}}, all referring to the same revision.
 	 *
-	 * @return an empty map if the image was not pushed to any repositories
+	 * @return an empty map if the image has no tags
+	 */
+	public Map<String, Set<String>> getNameToTags()
+	{
+		return nameToTags;
+	}
+
+	/**
+	 * Returns a mapping of an image's name on remote registries to its associated digest.
+	 * <p>
+	 * For example, an image might have a name such as {@code docker.io/nasa/rocket-ship} with digest
+	 * {@code "sha256:afcc7f1ac1b49db317a7196c902e61c6c3c4607d63599ee1a82d702d249a0ccb"}.
+	 *
+	 * @return an empty map if the image has not been pushed to any repositories
 	 */
 	public Map<String, String> getNameToDigest()
 	{
@@ -285,20 +324,11 @@ public final class Image
 	}
 
 	/**
-	 * Returns a mapping from the image's name to its tag.
-	 *
-	 * @return an empty map if the image was not pushed to any repositories
-	 */
-	public Map<String, String> getNameToTag()
-	{
-		return nameToTag;
-	}
-
-	/**
 	 * Tags the image.
 	 *
-	 * @param repository the repository to tag in (e.g. {@code docker.io/nasa/rocket-ship})
-	 * @param tag        the name of the tag (e.g., {@code latest})
+	 * @param name the name of the image (e.g. {@code nasa/rocket-ship} locally or
+	 *             {@code docker.io/nasa/rocket-ship} on a remote repository)
+	 * @param tag  the name of the tag (e.g., {@code latest})
 	 * @throws NullPointerException     if any of the arguments are null
 	 * @throws IllegalArgumentException if any of the arguments contain leading or trailing whitespace or are
 	 *                                  empty
@@ -311,17 +341,17 @@ public final class Image
 	 * @throws InterruptedException     if the thread is interrupted while waiting for a response. This can
 	 *                                  happen due to shutdown signals.
 	 */
-	public void tag(String repository, String tag)
+	public void tag(String name, String tag)
 		throws ImageNotFoundException, IOException, TimeoutException, InterruptedException
 	{
-		requireThat(repository, "repository").isStripped().isNotEmpty();
+		requireThat(name, "name").isStripped().isNotEmpty();
 		requireThat(tag, "tag").isStripped().isNotEmpty();
 
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImageTag
 		String encodedId = id.replace("/", "%2F");
 		URI uri = client.getServer().resolve("images/" + encodedId + "/tag");
 		Request request = client.createRequest(uri).
-			param("repo", repository).
+			param("repo", name).
 			param("tag", tag).
 			method(POST);
 
@@ -344,17 +374,16 @@ public final class Image
 	/**
 	 * Pushes an image to a remote repository.
 	 *
-	 * @param client the client configuration
-	 * @param name   the name of the image to push. For example, {@code docker.io/nasa/rocket-ship}
-	 * @param tag    the tag to push
+	 * @param name the name of the image to push. For example, {@code docker.io/nasa/rocket-ship}
+	 * @param tag  the tag to push
 	 * @return the push configuration
 	 * @throws NullPointerException     if any of the arguments are null
 	 * @throws IllegalArgumentException if any of the arguments contain leading or trailing whitespace or are
 	 *                                  empty
 	 */
-	public ImagePusher pusher(DockerClient client, String name, String tag)
+	public ImagePusher pusher(String name, String tag)
 	{
-		return new ImagePusher((InternalClient) client, this, name, tag);
+		return new ImagePusher(client, this, name, tag);
 	}
 
 	/**
@@ -387,7 +416,7 @@ public final class Image
 	{
 		return new ToStringBuilder(Image.class).
 			add("id", id).
-			add("nameToTag", nameToTag).
+			add("nameToTag", nameToTags).
 			add("nameToDigest", nameToDigest).
 			toString();
 	}

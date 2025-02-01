@@ -32,10 +32,10 @@ import static org.eclipse.jetty.http.HttpStatus.SERVICE_UNAVAILABLE_503;
 public final class Node
 {
 	/**
-	 * Looks up a node by its ID.
+	 * Looks up a node by its name or ID.
 	 *
 	 * @param client the client configuration
-	 * @param id     the node's ID
+	 * @param id     the node's name or ID
 	 * @return null if no match is found
 	 * @throws NullPointerException     if any of the arguments are null
 	 * @throws IllegalArgumentException if {@code id} contains leading or trailing whitespace or is empty
@@ -54,64 +54,13 @@ public final class Node
 	public static Node getById(DockerClient client, String id)
 		throws IOException, TimeoutException, InterruptedException
 	{
-		return getByNameOrId((InternalClient) client, id);
-	}
-
-	/**
-	 * Looks up a node by its name.
-	 *
-	 * @param client the client configuration
-	 * @param name   the node's name
-	 * @return null if no match is found
-	 * @throws NullPointerException     if any of the arguments are null
-	 * @throws IllegalArgumentException if {@code name} contains leading or trailing whitespace or is empty
-	 * @throws IllegalStateException    if:
-	 *                                  <ul>
-	 *                                    <li>the client is closed.</li>
-	 *                                    <li>the server is not part of a swarm.</li>
-	 *                                  </ul>
-	 * @throws IOException              if an I/O error occurs. These errors are typically transient, and
-	 *                                  retrying the request may resolve the issue.
-	 * @throws TimeoutException         if the request times out before receiving a response. This might
-	 *                                  indicate network latency or server overload.
-	 * @throws InterruptedException     if the thread is interrupted while waiting for a response. This can
-	 *                                  happen due to shutdown signals.
-	 */
-	public static Node getByName(DockerClient client, String name)
-		throws IOException, TimeoutException, InterruptedException
-	{
-		return getByNameOrId((InternalClient) client, name);
-	}
-
-	/**
-	 * Looks up a node by its name or ID.
-	 *
-	 * @param client   the client configuration
-	 * @param nameOrId the node's name or ID
-	 * @return null if no match is found
-	 * @throws NullPointerException     if any of the arguments are null
-	 * @throws IllegalArgumentException if {@code nameOrId} contains leading or trailing whitespace or is empty
-	 * @throws IllegalStateException    if:
-	 *                                  <ul>
-	 *                                    <li>the client is closed.</li>
-	 *                                    <li>the server is not part of a swarm.</li>
-	 *                                  </ul>
-	 * @throws IOException              if an I/O error occurs. These errors are typically transient, and
-	 *                                  retrying the request may resolve the issue.
-	 * @throws TimeoutException         if the request times out before receiving a response. This might
-	 *                                  indicate network latency or server overload.
-	 * @throws InterruptedException     if the thread is interrupted while waiting for a response. This can
-	 *                                  happen due to shutdown signals.
-	 */
-	private static Node getByNameOrId(InternalClient client, String nameOrId)
-		throws IOException, TimeoutException, InterruptedException
-	{
+		InternalClient internalClient = (InternalClient) client;
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Node/operation/NodeInspect
-		URI uri = client.getServer().resolve("nodes/" + nameOrId);
-		Request request = client.createRequest(uri).
+		URI uri = internalClient.getServer().resolve("nodes/" + id);
+		Request request = internalClient.createRequest(uri).
 			method(GET);
 
-		ContentResponse serverResponse = client.send(request);
+		ContentResponse serverResponse = internalClient.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case OK_200 ->
@@ -124,20 +73,21 @@ public final class Node
 			}
 			case INTERNAL_SERVER_ERROR_500 ->
 			{
-				JsonNode json = client.getJsonMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = internalClient.getJsonMapper().readTree(serverResponse.getContentAsString());
 				throw new IOException(json.get("message").textValue());
 			}
 			case SERVICE_UNAVAILABLE_503 ->
 			{
 				// The node is not part of a swarm
-				JsonNode json = client.getJsonMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = internalClient.getJsonMapper().readTree(serverResponse.getContentAsString());
 				throw new IllegalStateException(json.get("message").textValue());
 			}
-			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
-				"Request: " + client.toString(request));
+			default -> throw new AssertionError(
+				"Unexpected response: " + internalClient.toString(serverResponse) + "\n" +
+					"Request: " + internalClient.toString(request));
 		}
-		JsonNode body = client.getResponseBody(serverResponse);
-		return getByJson(client, body);
+		JsonNode body = internalClient.getResponseBody(serverResponse);
+		return getByJson(internalClient, body);
 	}
 
 	/**

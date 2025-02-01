@@ -5,7 +5,9 @@ import com.github.cowwoc.docker.client.DockerClient;
 import com.github.cowwoc.docker.exception.ContainerAlreadyStartedException;
 import com.github.cowwoc.docker.exception.ContainerNotFoundException;
 import com.github.cowwoc.docker.internal.client.InternalClient;
+import com.github.cowwoc.docker.internal.util.RequestAbortedException;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
+import com.github.cowwoc.pouch.core.WrappedCheckedException;
 import org.eclipse.jetty.client.ContentResponse;
 import org.eclipse.jetty.client.Request;
 
@@ -14,7 +16,12 @@ import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Locale;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.requireThat;
 import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.that;
@@ -319,22 +326,97 @@ public final class Container
 
 	/**
 	 * A container's log streams.
-	 *
-	 * @param stdout the container's stdout stream, or {@code null} if not returned by the server
-	 * @param stderr the container's stderr stream, or {@code null} if not returned by the server (or included
-	 *               as part of {@code stdout})
 	 */
-	public record LogStreams(InputStream stdout, InputStream stderr) implements AutoCloseable
+	public static final class LogStreams implements AutoCloseable
 	{
+		private final InputStream stdout;
+		private final InputStream stderr;
+		private final Request request;
+		private final BlockingQueue<Throwable> exceptions = new LinkedBlockingQueue<>();
+		private final AtomicBoolean closed = new AtomicBoolean();
+
 		/**
-		 * Closes the Streams.
+		 * Creates a new instance.
 		 *
-		 * @throws IOException if any of the streams throw an {@code IOException} when closing
+		 * @param stdout  the container's standard output stream, or {@code null} if not captured
+		 * @param stderr  the container's standard error stream, or {@code null} if not captured (or included as
+		 *                part of {@code stdout})
+		 * @param request the client request, or {@code null} if none of the streams were captured
 		 */
-		@SuppressWarnings("EmptyTryBlock")
+		public LogStreams(InputStream stdout, InputStream stderr, Request request)
+		{
+			this.stdout = stdout;
+			this.stderr = stderr;
+
+			requireThat(request, "request").isNotNull();
+			this.request = request;
+		}
+
+		/**
+		 * Returns the container's standard output stream.
+		 *
+		 * @return {@code null} if the stream was not captured
+		 */
+		public InputStream getStdout()
+		{
+			return stdout;
+		}
+
+		/**
+		 * Returns the container's standard error stream.
+		 *
+		 * @return {@code null} if the stream was not captured
+		 */
+		public InputStream getStderr()
+		{
+			return stderr;
+		}
+
+		/**
+		 * Returns the errors encountered during the operation. Errors are added asynchronously as they occur. No
+		 * new errors will be added after {@link #stopCapturing()} is invoked.
+		 *
+		 * @return the errors
+		 * @see #stopCapturing()
+		 */
+		public BlockingQueue<Throwable> getExceptions()
+		{
+			return exceptions;
+		}
+
+		/**
+		 * Stops capturing the streams.
+		 *
+		 * @throws InterruptedException if the thread is interrupted before the request is aborted
+		 */
+		public void stopCapturing() throws InterruptedException
+		{
+			if (request != null)
+			{
+				CountDownLatch onComplete = new CountDownLatch(1);
+				try
+				{
+					if (request.abort(new RequestAbortedException(onComplete)).get())
+						onComplete.await();
+				}
+				catch (ExecutionException e)
+				{
+					throw WrappedCheckedException.wrap(e);
+				}
+			}
+		}
+
+		/**
+		 * Stops capturing the streams.
+		 *
+		 * @throws IOException if any of the streams throw an {@code IOException} while closing
+		 */
 		@Override
+		@SuppressWarnings("EmptyTryBlock")
 		public void close() throws IOException
 		{
+			if (!closed.compareAndSet(false, true))
+				return;
 			try (stdout; stderr)
 			{
 			}

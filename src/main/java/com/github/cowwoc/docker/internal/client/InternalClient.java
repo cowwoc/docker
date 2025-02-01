@@ -165,14 +165,4 @@ public interface InternalClient extends DockerClient
 	 * @throws IllegalStateException    if the client is closed
 	 */
 	List<String> arrayToListOfString(JsonNode array, String name);
-
-	/**
-	 * Removes a registry from an image name.
-	 *
-	 * @param id an identifier of the image. Local images may be identified by their name, digest or ID. Remote
-	 *           images may be identified by their name or ID. If a name is specified, it may include a tag or a
-	 *           digest.
-	 * @return the id without a registry
-	 */
-	String removeRegistry(String id);
 }

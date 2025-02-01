@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.cowwoc.docker.exception.ImageNotFoundException;
 import com.github.cowwoc.docker.internal.client.InternalClient;
+import com.github.cowwoc.docker.resource.Container.LogStreams;
 import com.github.cowwoc.pouch.core.WrappedCheckedException;
 import org.eclipse.jetty.client.Response;
 import org.eclipse.jetty.client.Result;
@@ -27,6 +28,7 @@ import static org.eclipse.jetty.util.BufferUtil.EMPTY_BUFFER;
 /**
  * Logs the output of a docker container incrementally.
  */
+@SuppressWarnings("ClassEscapesDefinedScope")
 public final class LogListener extends AsyncResponseListener
 {
 	private final OutputStream stdout;
@@ -43,14 +45,15 @@ public final class LogListener extends AsyncResponseListener
 	/**
 	 * Creates a new instance.
 	 *
-	 * @param client the client configuration
-	 * @param stdout the container's stdout stream, or null if disabled
-	 * @param stderr the container's stderr stream, or null if disabled
-	 * @throws NullPointerException if {@code client} is null
+	 * @param client  the client configuration
+	 * @param stdout  a stream to capture the container's standard output, or {@code null} to disable capturing
+	 * @param stderr  a stream to capture the container's standard error, or {@code null} to disable capturing
+	 * @param streams the streams returned to the user
+	 * @throws NullPointerException if {@code client} or {@code streams} are null
 	 */
-	public LogListener(InternalClient client, OutputStream stdout, OutputStream stderr)
+	public LogListener(InternalClient client, OutputStream stdout, OutputStream stderr, LogStreams streams)
 	{
-		super(client);
+		super(client, streams.getExceptions());
 		this.stdout = stdout;
 		this.stderr = stderr;
 	}
@@ -58,17 +61,17 @@ public final class LogListener extends AsyncResponseListener
 	@Override
 	protected void processUnknownProperties(JsonNode json)
 	{
-		IOException e = new IOException("Unexpected response: " + json.toPrettyString());
-		if (exception != null)
-			e.addSuppressed(exception);
-		exception = e;
+		exceptions.add(new IOException("Unexpected response: " + json.toPrettyString()));
 	}
 
 	@Override
 	public void onBegin(Response response)
 	{
 		if (response.getStatus() == OK_200)
-			exceptionReady.countDown();
+		{
+			// Return right away from ContainerLogs.stream(). Users will continue listening to logs asynchronously.
+			responseReady.countDown();
+		}
 	}
 
 	@Override
@@ -79,8 +82,8 @@ public final class LogListener extends AsyncResponseListener
 		{
 			case "application/vnd.docker.raw-stream" -> contentType = ContentType.RAW_STREAM;
 			case "application/vnd.docker.multiplexed-stream" -> contentType = ContentType.MULTIPLEXED_STREAM;
-			default -> exception = new IOException("Unexpected response: " + client.toString(response) + "\n" +
-				"Request: " + client.toString(response.getRequest()));
+			default -> exceptions.add(new IOException("Unexpected response: " + client.toString(response) + "\n" +
+				"Request: " + client.toString(response.getRequest())));
 		}
 	}
 
@@ -155,9 +158,7 @@ public final class LogListener extends AsyncResponseListener
 		}
 		catch (CharacterCodingException e)
 		{
-			if (exception != null)
-				e.addSuppressed(exception);
-			exception = e;
+			exceptions.add(e);
 		}
 	}
 
@@ -193,53 +194,88 @@ public final class LogListener extends AsyncResponseListener
 		return true;
 	}
 
-	@SuppressWarnings("EmptyTryBlock")
 	@Override
 	public void onComplete(Result result)
 	{
-		Response response = result.getResponse();
-		int statusCode = response.getStatus();
-		if (statusCode == OK_200)
+		RequestAbortedException requestAborted = handleRequestException(result);
+		try
 		{
-			try (stdout; stderr)
+			if (result.getResponseFailure() != null)
+				exceptions.add(result.getResponseFailure());
+			Response response = result.getResponse();
+			int statusCode = response.getStatus();
+			if (statusCode == OK_200)
 			{
+				onSuccess();
+				return;
 			}
-			catch (IOException e)
-			{
-				throw WrappedCheckedException.wrap(e);
-			}
-			return;
+			onFailure(result);
 		}
+		finally
+		{
+			if (requestAborted != null)
+				requestAborted.onComplete();
+		}
+	}
 
+	/**
+	 * Handles any exception thrown by the request.
+	 *
+	 * @param result the result of the operation
+	 * @return {@code RequestAbortedException} if the request was aborted; otherwise, {@code null}
+	 */
+	private RequestAbortedException handleRequestException(Result result)
+	{
+		if (result.getRequestFailure() == null)
+			return null;
+		Throwable requestFailure = result.getRequestFailure();
+		if (requestFailure instanceof RequestAbortedException rae)
+			return rae;
+		exceptions.add(requestFailure);
+		return null;
+	}
+
+	/**
+	 * Invoked if the request completes successfully.
+	 */
+	@SuppressWarnings("EmptyTryBlock")
+	private void onSuccess()
+	{
+		try (stdout; stderr)
+		{
+		}
+		catch (IOException e)
+		{
+			exceptions.add(e);
+		}
+	}
+
+	/**
+	 * Invoked on a request failure.
+	 *
+	 * @param result the result of the request
+	 */
+	private void onFailure(Result result)
+	{
 		try
 		{
 			decodeBytes(EMPTY_BUFFER, true);
+			Response response = result.getResponse();
+			int statusCode = response.getStatus();
 			switch (statusCode)
 			{
 				case FORBIDDEN_403 ->
 				{
 					// Example: Surpassed storage quota
 					JsonNode body = getResponseBody();
-					IOException e = new IOException(body.get("message").textValue());
-					if (exception != null)
-						e.addSuppressed(exception);
-					exception = e;
+					exceptions.add(new IOException(body.get("message").textValue()));
 				}
 				case NOT_FOUND_404 ->
 				{
 					JsonNode body = getResponseBody();
-					ImageNotFoundException e = new ImageNotFoundException(body.get("message").textValue());
-					if (exception != null)
-						e.addSuppressed(exception);
-					exception = e;
+					exceptions.add(new ImageNotFoundException(body.get("message").textValue()));
 				}
-				case INTERNAL_SERVER_ERROR_500 ->
-				{
-					IOException e = new IOException(responseAsString.toString());
-					if (exception != null)
-						e.addSuppressed(exception);
-					exception = e;
-				}
+				case INTERNAL_SERVER_ERROR_500 -> exceptions.add(new IOException(responseAsString.toString()));
 				default -> throw new AssertionError("Unexpected response: " + client.toString(response) + "\n" +
 					"Request: " + client.toString(result.getRequest()));
 			}
@@ -251,11 +287,9 @@ public final class LogListener extends AsyncResponseListener
 			}
 			catch (IOException e)
 			{
-				if (exception != null)
-					e.addSuppressed(exception);
-				exception = e;
+				exceptions.add(e);
 			}
-			exceptionReady.countDown();
+			responseReady.countDown();
 		}
 	}
 

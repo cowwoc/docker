@@ -3,7 +3,7 @@
  */
 module com.github.cowwoc.docker
 {
-	requires org.eclipse.jetty.client;
+	requires transitive org.eclipse.jetty.client;
 	requires org.apache.commons.compress;
 	requires org.apache.sshd.osgi;
 	requires com.github.cowwoc.requirements10.jackson;
@@ -12,8 +12,10 @@ module com.github.cowwoc.docker
 	requires com.github.cowwoc.pouch.core;
 	requires com.fasterxml.jackson.datatype.jsr310;
 	requires com.fasterxml.jackson.databind;
+	requires jdk.jfr;
 
 	exports com.github.cowwoc.docker.client;
 	exports com.github.cowwoc.docker.exception;
 	exports com.github.cowwoc.docker.resource;
+	exports com.github.cowwoc.docker.internal.util to com.github.cowwoc.docker.test;
 }

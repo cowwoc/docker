@@ -10,33 +10,45 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+
+import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.that;
 
 /**
  * Processes JSON objects returned by a server response.
  */
+@SuppressWarnings("ClassEscapesDefinedScope")
 public abstract class AsyncResponseListener implements Response.Listener
 {
+	/**
+	 * The docker client.
+	 */
 	protected final InternalClient client;
 	/**
-	 * The exception that was thrown by the listener.
+	 * The exceptions that were thrown by the operation.
 	 */
-	protected IOException exception;
+	protected final BlockingQueue<Throwable> exceptions;
 	/**
-	 * A CountDownLatch that counts down to zero once {@code exception} is ready for use.
+	 * A CountDownLatch that counts down to zero once the response is ready for processing.
 	 */
-	protected final CountDownLatch exceptionReady = new CountDownLatch(1);
+	protected final CountDownLatch responseReady = new CountDownLatch(1);
 	protected final Logger log = LoggerFactory.getLogger(getClass());
 
 	/**
 	 * Creates a new instance.
 	 *
-	 * @param client the client configuration
-	 * @throws NullPointerException if {@code client} is null
+	 * @param client     the client configuration
+	 * @param exceptions a container for exceptions that are thrown by the operation
+	 * @throws NullPointerException if any of the arguments are null
 	 */
-	protected AsyncResponseListener(InternalClient client)
+	protected AsyncResponseListener(InternalClient client, BlockingQueue<Throwable> exceptions)
 	{
+		assert that(client, "client").isNotNull().elseThrow();
+		assert that(exceptions, "exceptions").isNotNull().elseThrow();
+
 		this.client = client;
+		this.exceptions = exceptions;
 	}
 
 	/**
@@ -65,11 +77,7 @@ public abstract class AsyncResponseListener implements Response.Listener
 				warnOnUnexpectedProperties(node, "code", "message");
 				String message = node.get("message").textValue();
 				log.error(message);
-
-				IOException e = new IOException(message);
-				if (exception != null)
-					e.addSuppressed(exception);
-				exception = e;
+				exceptions.add(new IOException(message));
 				return;
 			}
 			node = json.get("error");
@@ -78,19 +86,13 @@ public abstract class AsyncResponseListener implements Response.Listener
 				warnOnUnexpectedProperties(json, "error");
 				String message = node.textValue();
 				log.error(message);
-
-				IOException e = new IOException(message);
-				if (exception != null)
-					e.addSuppressed(exception);
-				exception = e;
+				exceptions.add(new IOException(message));
 			}
 			processUnknownProperties(json);
 		}
 		catch (JsonProcessingException e)
 		{
-			if (exception != null)
-				e.addSuppressed(exception);
-			exception = e;
+			exceptions.add(e);
 		}
 	}
 
@@ -115,23 +117,48 @@ public abstract class AsyncResponseListener implements Response.Listener
 	}
 
 	/**
-	 * Returns the exception thrown by the listener.
+	 * Returns an exception that encapsulates all the errors encountered by the operation. This method should be
+	 * called only after the request has completed; otherwise, additional errors may still occur.
 	 *
-	 * @return the exception
+	 * @return null if no errors occurred
 	 */
 	public IOException getException()
 	{
-		return exception;
+		if (exceptions.isEmpty())
+			return null;
+		if (exceptions.size() == 1)
+		{
+			Throwable first = exceptions.poll();
+			if (first instanceof IOException ioe)
+				return ioe;
+			return new IOException(first);
+		}
+		StringBuilder combinedMessage = new StringBuilder(38).append("The operation threw ").
+			append(exceptions.size()).append(" exceptions.\n");
+		int i = 1;
+		for (Throwable exception : exceptions)
+		{
+			combinedMessage.append(i).append(". ").append(exception.getClass().getName());
+			String message = exception.getMessage();
+			if (message != null)
+			{
+				combinedMessage.append(": ").
+					append(message).
+					append('\n');
+			}
+			++i;
+		}
+		return new IOException(combinedMessage.toString());
 	}
 
 	/**
-	 * Returns a {@code CountDownLatch} that reaches zero after the server response is processed.
+	 * Returns a {@code CountDownLatch} that reaches zero when the request completes.
 	 *
 	 * @return the {@code CountDownLatch}
 	 */
-	public CountDownLatch getExceptionReady()
+	public CountDownLatch getRequestComplete()
 	{
-		return exceptionReady;
+		return responseReady;
 	}
 
 	/**
