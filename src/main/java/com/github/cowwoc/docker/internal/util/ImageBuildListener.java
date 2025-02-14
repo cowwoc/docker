@@ -39,7 +39,9 @@ public final class ImageBuildListener extends JsonStreamListener
 		if (node != null)
 		{
 			warnOnUnexpectedProperties(json, "stream");
-			log.info(node.textValue());
+			String message = node.textValue();
+			for (String line : Strings.split(message))
+				log.info(line);
 			return;
 		}
 		node = json.get("aux");

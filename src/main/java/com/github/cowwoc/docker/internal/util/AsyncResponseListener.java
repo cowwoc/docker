@@ -52,22 +52,23 @@ public abstract class AsyncResponseListener implements Response.Listener
 	}
 
 	/**
-	 * Processes a single non-empty line returned by the server.
+	 * Processes a JSON object returned by the server.
 	 *
-	 * @param line the line
-	 * @throws NullPointerException if {@code line} is null
+	 * @param object the object
+	 * @throws NullPointerException if {@code object} is null
 	 */
-	protected void processObject(String line)
+	protected void processObject(String object)
 	{
 		try
 		{
-			JsonNode json = client.getJsonMapper().readTree(line);
+			JsonNode json = client.getJsonMapper().readTree(object);
 			JsonNode node = json.get("message");
 			if (node != null)
 			{
 				String message = node.textValue();
 				warnOnUnexpectedProperties(json, "message");
-				log.info(message);
+				for (String line : Strings.split(message))
+					log.info(line);
 				return;
 			}
 			node = json.get("errorDetail");

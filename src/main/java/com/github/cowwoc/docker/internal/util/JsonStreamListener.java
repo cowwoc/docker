@@ -14,7 +14,8 @@ import java.nio.charset.CoderResult;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -33,13 +34,9 @@ public abstract class JsonStreamListener extends AsyncResponseListener
 	private final CharBuffer charBuffer = CharBuffer.allocate(200);
 	protected final StringBuilder responseAsString = new StringBuilder();
 	/**
-	 * The last message that was logged.
+	 * Maps a message to the last time that it was logged.
 	 */
-	protected final AtomicReference<String> lastMessage = new AtomicReference<>("");
-	/**
-	 * The time that the last message was logged.
-	 */
-	protected final AtomicReference<Instant> timeOfLastMessage = new AtomicReference<>(Instant.MIN);
+	protected final ConcurrentMap<String, Instant> messageToTime = new ConcurrentHashMap<>();
 
 	/**
 	 * Creates a new instance.
@@ -128,13 +125,13 @@ public abstract class JsonStreamListener extends AsyncResponseListener
 			message = node.get("id").textValue() + ": " + message;
 
 		Instant now = Instant.now();
-		if (!message.equals(lastMessage.get()) ||
-			Duration.between(timeOfLastMessage.get(), now).compareTo(PROGRESS_FREQUENCY) >= 0)
+		Instant lastTime = messageToTime.get(message);
+		if (lastTime == null || Duration.between(lastTime, now).compareTo(PROGRESS_FREQUENCY) >= 0)
 		{
 			// Only log the status if it's changed or PROGRESS_FREQUENCY has elapsed
-			lastMessage.set(message);
-			timeOfLastMessage.set(now);
-			log.info(message);
+			messageToTime.put(message, now);
+			for (String line : Strings.split(message))
+				log.info(line);
 		}
 	}
 
