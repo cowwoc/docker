@@ -1,10 +1,8 @@
 package com.github.cowwoc.docker.internal.util;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.cowwoc.docker.exception.ResourceNotFoundException;
 import com.github.cowwoc.docker.internal.client.InternalClient;
-import com.github.cowwoc.pouch.core.WrappedCheckedException;
 import org.eclipse.jetty.client.Response;
 import org.eclipse.jetty.client.Result;
 
@@ -78,21 +76,6 @@ public final class ImageTransferListener extends JsonStreamListener
 		finally
 		{
 			responseReady.countDown();
-		}
-	}
-
-	/**
-	 * @return the server response as JSON
-	 */
-	private JsonNode getResponseBody()
-	{
-		try
-		{
-			return client.getJsonMapper().readTree(responseAsString.toString());
-		}
-		catch (JsonProcessingException e)
-		{
-			throw WrappedCheckedException.wrap(e);
 		}
 	}
 }

@@ -202,7 +202,7 @@ public final class ImageBuilder
 		IOException exception = responseListener.getException();
 		if (exception != null)
 		{
-			// Need to wrap the exception to ensure that it contains stack trace elements from the current thread
+			// Ensure that the returned exception stack trace contains a reference to the current method
 			throw new IOException(exception);
 		}
 		return new Image(client, responseListener.imageId, Map.of(), Map.of());

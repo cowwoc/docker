@@ -8,6 +8,7 @@ import org.eclipse.jetty.client.Result;
 import java.io.IOException;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import static org.eclipse.jetty.http.HttpStatus.BAD_REQUEST_400;
 import static org.eclipse.jetty.http.HttpStatus.INTERNAL_SERVER_ERROR_500;
 import static org.eclipse.jetty.http.HttpStatus.OK_200;
 import static org.eclipse.jetty.util.BufferUtil.EMPTY_BUFFER;
@@ -38,8 +39,7 @@ public final class ImageBuildListener extends JsonStreamListener
 		if (node != null)
 		{
 			warnOnUnexpectedProperties(json, "stream");
-			linesToLog.append(node.textValue());
-			Strings.logLines(linesToLog, log);
+			log.info(node.textValue());
 			return;
 		}
 		node = json.get("aux");
@@ -71,15 +71,17 @@ public final class ImageBuildListener extends JsonStreamListener
 			if (result.getResponseFailure() != null)
 				exceptions.add(result.getResponseFailure());
 			decodeBytes(EMPTY_BUFFER, true);
-			processResponse(true);
-			if (!linesToLog.isEmpty())
-				log.info(linesToLog.toString());
 
 			// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImageBuild
 			Response response = result.getResponse();
 			switch (response.getStatus())
 			{
 				case OK_200 -> processResponse(true);
+				case BAD_REQUEST_400 ->
+				{
+					JsonNode body = getResponseBody();
+					exceptions.add(new IOException(body.get("message").textValue()));
+				}
 				case INTERNAL_SERVER_ERROR_500 -> exceptions.add(
 					new IOException("Unexpected response: " + responseAsString + "\n" +
 						"Request: " + client.toString(result.getRequest())));

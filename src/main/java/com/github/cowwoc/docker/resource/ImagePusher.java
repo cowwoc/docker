@@ -179,7 +179,7 @@ public final class ImagePusher
 		IOException exception = responseListener.getException();
 		if (exception != null)
 		{
-			// Need to wrap the exception to ensure that it contains stack trace elements from the current thread
+			// Ensure that the returned exception stack trace contains a reference to the current method
 			if (exception instanceof ResourceNotFoundException)
 				throw new ResourceNotFoundException(exception);
 			throw new IOException(exception);

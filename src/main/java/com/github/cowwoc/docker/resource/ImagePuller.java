@@ -150,7 +150,7 @@ public final class ImagePuller
 		{
 			if (exception instanceof ResourceNotFoundException)
 				return null;
-			// Need to wrap the exception to ensure that it contains stack trace elements from the current thread
+			// Ensure that the returned exception stack trace contains a reference to the current method
 			throw new IOException(exception);
 		}
 		return Image.getById(client, id);

@@ -1,7 +1,9 @@
 package com.github.cowwoc.docker.internal.util;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.cowwoc.docker.internal.client.InternalClient;
+import com.github.cowwoc.pouch.core.WrappedCheckedException;
 import org.eclipse.jetty.client.Response;
 
 import java.nio.ByteBuffer;
@@ -38,10 +40,6 @@ public abstract class JsonStreamListener extends AsyncResponseListener
 	 * The time that the last message was logged.
 	 */
 	protected final AtomicReference<Instant> timeOfLastMessage = new AtomicReference<>(Instant.MIN);
-	/**
-	 * Lines of text that were returned by the server for logging by the client.
-	 */
-	protected final StringBuilder linesToLog = new StringBuilder();
 
 	/**
 	 * Creates a new instance.
@@ -136,8 +134,22 @@ public abstract class JsonStreamListener extends AsyncResponseListener
 			// Only log the status if it's changed or PROGRESS_FREQUENCY has elapsed
 			lastMessage.set(message);
 			timeOfLastMessage.set(now);
-			linesToLog.append(message);
-			Strings.logLines(linesToLog, log);
+			log.info(message);
+		}
+	}
+
+	/**
+	 * @return the server response as JSON
+	 */
+	protected JsonNode getResponseBody()
+	{
+		try
+		{
+			return client.getJsonMapper().readTree(responseAsString.toString());
+		}
+		catch (JsonProcessingException e)
+		{
+			throw WrappedCheckedException.wrap(e);
 		}
 	}
 }
