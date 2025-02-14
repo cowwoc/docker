@@ -50,10 +50,10 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<jetty.version>12.0.16</jetty.version>
 		<jackson.version>2.18.2</jackson.version>
-		<pmd.version>7.9.0</pmd.version>
+		<pmd.version>7.10.0</pmd.version>
 		<maven.checkstyle.version>3.6.0</maven.checkstyle.version>
 		<checkstyle.failOnViolation>true</checkstyle.failOnViolation>
-		<requirements.version>10.12-SNAPSHOT</requirements.version>
+		<requirements.version>10.12</requirements.version>
 	</properties>
 
 	<dependencies>
@@ -111,7 +111,7 @@
 		<dependency>
 			<groupId>org.testng</groupId>
 			<artifactId>testng</artifactId>
-			<version>7.10.2</version>
+			<version>7.11.0</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>

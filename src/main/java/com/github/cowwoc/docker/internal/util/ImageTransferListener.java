@@ -2,7 +2,7 @@ package com.github.cowwoc.docker.internal.util;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.github.cowwoc.docker.exception.ImageNotFoundException;
+import com.github.cowwoc.docker.exception.ResourceNotFoundException;
 import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.pouch.core.WrappedCheckedException;
 import org.eclipse.jetty.client.Response;
@@ -68,7 +68,7 @@ public final class ImageTransferListener extends JsonStreamListener
 				case NOT_FOUND_404 ->
 				{
 					JsonNode body = getResponseBody();
-					exceptions.add(new ImageNotFoundException(body.get("message").textValue()));
+					exceptions.add(new ResourceNotFoundException(body.get("message").textValue()));
 				}
 				case INTERNAL_SERVER_ERROR_500 -> exceptions.add(new IOException(responseAsString.toString()));
 				default -> exceptions.add(new IOException("Unexpected response: " + client.toString(response) + "\n" +

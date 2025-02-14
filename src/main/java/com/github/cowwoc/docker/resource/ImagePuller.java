@@ -2,7 +2,7 @@ package com.github.cowwoc.docker.resource;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.github.cowwoc.docker.exception.ImageNotFoundException;
+import com.github.cowwoc.docker.exception.ResourceNotFoundException;
 import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.docker.internal.util.ImageTransferListener;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
@@ -148,7 +148,7 @@ public final class ImagePuller
 		IOException exception = responseListener.getException();
 		if (exception != null)
 		{
-			if (exception instanceof ImageNotFoundException)
+			if (exception instanceof ResourceNotFoundException)
 				return null;
 			// Need to wrap the exception to ensure that it contains stack trace elements from the current thread
 			throw new IOException(exception);

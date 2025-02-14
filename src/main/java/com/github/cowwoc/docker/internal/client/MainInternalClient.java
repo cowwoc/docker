@@ -141,7 +141,11 @@ public final class MainInternalClient implements InternalClient
 		{
 			Throwable cause = e.getCause();
 			if (cause instanceof IOException ioe)
-				throw ioe;
+			{
+				// Convert ExecutionException to IOException. We can't throw the cause directly because it does not
+				// contain any stack traces from the current thread. Jetty executes requests in a separate thread.
+				throw new IOException(ioe);
+			}
 			throw new AssertionError(toString(request), e);
 		}
 	}

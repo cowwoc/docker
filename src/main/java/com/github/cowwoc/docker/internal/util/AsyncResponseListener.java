@@ -33,7 +33,7 @@ public abstract class AsyncResponseListener implements Response.Listener
 	 * A CountDownLatch that counts down to zero once the response is ready for processing.
 	 */
 	protected final CountDownLatch responseReady = new CountDownLatch(1);
-	protected final Logger log = LoggerFactory.getLogger(getClass());
+	protected final Logger log = LoggerFactory.getLogger(AsyncResponseListener.class);
 
 	/**
 	 * Creates a new instance.

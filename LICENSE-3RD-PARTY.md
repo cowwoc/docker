@@ -1,6 +1,5 @@
   # Third-party dependencies
   * Apache License, Version 2.0:
-    * [jcommander](https://jcommander.org)
     * [Jackson-annotations](https://github.com/FasterXML/jackson)
     * [Jackson-core](https://github.com/FasterXML/jackson-core)
     * [jackson-databind](https://github.com/FasterXML/jackson)
@@ -15,6 +14,7 @@
     * [Apache Commons Compress](https://commons.apache.org/proper/commons-compress/)
     * [Apache Commons Lang](https://commons.apache.org/proper/commons-lang/)
     * [Apache Mina SSHD :: OSGi](https://www.apache.org/sshd/sshd-osgi/)
+    * [jcommander](https://jcommander.org)
     * [JCL 1.2 implemented over SLF4J](http://www.slf4j.org)
     * [testng](https://testng.org)
   * Apache Software License - Version 2.0:

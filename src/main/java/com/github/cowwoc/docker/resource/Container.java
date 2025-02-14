@@ -3,7 +3,7 @@ package com.github.cowwoc.docker.resource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.cowwoc.docker.client.DockerClient;
 import com.github.cowwoc.docker.exception.ContainerAlreadyStartedException;
-import com.github.cowwoc.docker.exception.ContainerNotFoundException;
+import com.github.cowwoc.docker.exception.ResourceNotFoundException;
 import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.docker.internal.util.RequestAbortedException;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
@@ -38,10 +38,10 @@ import static org.eclipse.jetty.http.HttpStatus.OK_200;
 public final class Container
 {
 	/**
-	 * Looks up a container by its ID.
+	 * Looks up a container by its name or ID.
 	 *
 	 * @param client the client configuration
-	 * @param id     the ID
+	 * @param id     the name or ID
 	 * @return null if no match is found
 	 * @throws NullPointerException     if any of the arguments are null
 	 * @throws IllegalArgumentException if {@code id} contains leading or trailing whitespace, or is empty
@@ -56,75 +56,26 @@ public final class Container
 	public static Container getById(DockerClient client, String id)
 		throws IOException, TimeoutException, InterruptedException
 	{
-		return getByNameOrId((InternalClient) client, id);
-	}
-
-	/**
-	 * Looks up a container by its name.
-	 *
-	 * @param client the client configuration
-	 * @param name   the name
-	 * @return null if no match is found
-	 * @throws NullPointerException     if any of the arguments are null
-	 * @throws IllegalArgumentException if {@code name} contains leading or trailing whitespace, or is empty
-	 * @throws IllegalStateException    if the client is closed
-	 * @throws IOException              if an I/O error occurs. These errors are typically transient, and
-	 *                                  retrying the request may resolve the issue.
-	 * @throws TimeoutException         if the request times out before receiving a response. This might
-	 *                                  indicate network latency or server overload.
-	 * @throws InterruptedException     if the thread is interrupted while waiting for a response. This can
-	 *                                  happen due to shutdown signals.
-	 */
-	public static Container getByName(DockerClient client, String name)
-		throws IOException, TimeoutException, InterruptedException
-	{
-		return getByNameOrId((InternalClient) client, name);
-	}
-
-	/**
-	 * Looks up a container by its name or ID.
-	 *
-	 * @param client   the client configuration
-	 * @param nameOrId the name or ID
-	 * @return null if no match is found
-	 * @throws NullPointerException     if any of the arguments are null
-	 * @throws IllegalArgumentException if {@code nameOrId} contains leading or trailing whitespace, or is
-	 *                                  empty
-	 * @throws IllegalStateException    if the client is closed
-	 * @throws IOException              if an I/O error occurs. These errors are typically transient, and
-	 *                                  retrying the request may resolve the issue.
-	 * @throws TimeoutException         if the request times out before receiving a response. This might
-	 *                                  indicate network latency or server overload.
-	 * @throws InterruptedException     if the thread is interrupted while waiting for a response. This can
-	 *                                  happen due to shutdown signals.
-	 */
-	private static Container getByNameOrId(InternalClient client, String nameOrId)
-		throws IOException, TimeoutException, InterruptedException
-	{
-		requireThat(nameOrId, "nameOrId").isStripped().isNotEmpty();
+		requireThat(id, "id").isStripped().isNotEmpty();
 
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Container/operation/ContainerInspect
-		URI uri = client.getServer().resolve("containers/" + nameOrId + "/json");
-		Request request = client.createRequest(uri).
+		InternalClient ic = (InternalClient) client;
+		URI uri = ic.getServer().resolve("containers/" + id + "/json");
+		Request request = ic.createRequest(uri).
 			method(GET);
 
-		ContentResponse serverResponse = client.send(request);
-		switch (serverResponse.getStatus())
+		ContentResponse serverResponse = ic.send(request);
+		return switch (serverResponse.getStatus())
 		{
 			case OK_200 ->
 			{
-				// success
+				JsonNode body = ic.getResponseBody(serverResponse);
+				yield getByJson(ic, body);
 			}
-			case NOT_FOUND_404 ->
-			{
-				JsonNode json = client.getJsonMapper().readTree(serverResponse.getContentAsString());
-				throw new ContainerNotFoundException(json.get("message").textValue());
-			}
-			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
-				"Request: " + client.toString(request));
-		}
-		JsonNode body = client.getResponseBody(serverResponse);
-		return getByJson(client, body);
+			case NOT_FOUND_404 -> null;
+			default -> throw new AssertionError("Unexpected response: " + ic.toString(serverResponse) + "\n" +
+				"Request: " + ic.toString(request));
+		};
 	}
 
 	/**
@@ -194,6 +145,7 @@ public final class Container
 	 *                                          indicate network latency or server overload.
 	 * @throws InterruptedException             if the thread is interrupted while waiting for a response. This
 	 *                                          can happen due to shutdown signals.
+	 * @throws ResourceNotFoundException        if the container no longer exists
 	 * @throws ContainerAlreadyStartedException if the container is already started
 	 */
 	public void start()
@@ -218,7 +170,7 @@ public final class Container
 			case NOT_FOUND_404 ->
 			{
 				JsonNode json = client.getJsonMapper().readTree(serverResponse.getContentAsString());
-				throw new ContainerNotFoundException(json.get("message").textValue());
+				throw new ResourceNotFoundException(json.get("message").textValue());
 			}
 			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
 				"Request: " + client.toString(request));
@@ -231,8 +183,9 @@ public final class Container
 	 * @param signal  the signal to send ot the container (usually {@code SIGTERM}, {@code SIGKILL},
 	 *                {@code SIGHUP} or {@code SIGINT}). {@code docker stop} sends {@code SIGTERM}.
 	 * @param timeout the maximum amount of time to wait before killing the container
-	 * @throws NullPointerException     if any of the arguments are null
-	 * @throws IllegalArgumentException if {@code signal} contains leading or trailing whitespace or is empty
+	 * @throws NullPointerException      if any of the arguments are null
+	 * @throws IllegalArgumentException  if {@code signal} contains leading or trailing whitespace or is empty
+	 * @throws ResourceNotFoundException if the container no longer exists
 	 */
 	public void stop(String signal, Duration timeout)
 		throws IOException, TimeoutException, InterruptedException
@@ -257,7 +210,7 @@ public final class Container
 			case NOT_FOUND_404 ->
 			{
 				JsonNode json = client.getJsonMapper().readTree(serverResponse.getContentAsString());
-				throw new ContainerNotFoundException(json.get("message").textValue());
+				throw new ResourceNotFoundException(json.get("message").textValue());
 			}
 			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
 				"Request: " + client.toString(request));
@@ -269,6 +222,7 @@ public final class Container
 	 *
 	 * @param condition the type of stop condition to wait for
 	 * @return the exit code returned by the container
+	 * @throws ResourceNotFoundException if the container no longer exists
 	 */
 	public WaitForStopResult waitForStop(StopCondition condition)
 		throws IOException, TimeoutException, InterruptedException
@@ -298,7 +252,7 @@ public final class Container
 			case NOT_FOUND_404 ->
 			{
 				JsonNode json = client.getJsonMapper().readTree(serverResponse.getContentAsString());
-				throw new ContainerNotFoundException(json.get("message").textValue());
+				throw new ResourceNotFoundException(json.get("message").textValue());
 			}
 			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
 				"Request: " + client.toString(request));

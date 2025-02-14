@@ -3,7 +3,7 @@ package com.github.cowwoc.docker.resource;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.github.cowwoc.docker.exception.ImageNotFoundException;
+import com.github.cowwoc.docker.exception.ResourceNotFoundException;
 import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.docker.internal.util.ImageTransferListener;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
@@ -38,21 +38,32 @@ public final class ImagePusher
 	 * @param client the client configuration
 	 * @param image  the image to push
 	 * @param name   the name of the image to push. For example, {@code docker.io/nasa/rocket-ship}. The image
-	 *               must be present in the local image store with the same name.
-	 * @param tag    the tag to push
-	 * @throws NullPointerException     if any of the arguments are null
-	 * @throws IllegalArgumentException if any of the arguments contain leading or trailing whitespace or are
-	 *                                  empty
+	 *               must be present in the local image store with the same name. If no tag is specified,
+	 *               {@code latest} is used by default.
+	 * @throws NullPointerException     if {@code name} is null
+	 * @throws IllegalArgumentException if {@code name} contains leading or trailing whitespace or is empty
 	 */
-	ImagePusher(InternalClient client, Image image, String name, String tag)
+	ImagePusher(InternalClient client, Image image, String name)
 	{
 		requireThat(client, "client").isNotNull();
 		requireThat(image, "image").isNotNull();
-		requireThat(tag, "tag").isStripped().isNotEmpty();
+		requireThat(name, "name").isStripped().isNotEmpty();
 		this.client = client;
 		this.image = image;
-		this.name = name;
-		this.tag = tag;
+		// Format: registry:optionalPort/repository/image:tag
+		int lastColon = name.lastIndexOf(':');
+		if (lastColon == -1)
+		{
+			this.name = name;
+			this.tag = "latest";
+		}
+		else
+		{
+			this.name = name.substring(0, lastColon);
+			requireThat(this.name, "name").withContext("name", name).isStripped().isNotEmpty();
+			this.tag = name.substring(lastColon + 1);
+			requireThat(this.tag, "tag").withContext("name", name).isStripped().isNotEmpty();
+		}
 	}
 
 	/**
@@ -117,16 +128,16 @@ public final class ImagePusher
 	 * Pushes the image to the remote registry.
 	 *
 	 * @return the image that was pushed
-	 * @throws IllegalStateException  if the client is closed
-	 * @throws ImageNotFoundException if the referenced image could not be found
-	 * @throws IOException            if an I/O error occurs. These errors are typically transient, and retrying
-	 *                                the request may resolve the issue.
-	 * @throws TimeoutException       if the request times out before receiving a response. This might indicate
-	 *                                network latency or server overload.
-	 * @throws InterruptedException   if the thread is interrupted while waiting for a response. This can happen
-	 *                                due to shutdown signals.
+	 * @throws IllegalStateException     if the client is closed
+	 * @throws ResourceNotFoundException if the referenced image could not be found
+	 * @throws IOException               if an I/O error occurs. These errors are typically transient, and
+	 *                                   retrying the request may resolve the issue.
+	 * @throws TimeoutException          if the request times out before receiving a response. This might
+	 *                                   indicate network latency or server overload.
+	 * @throws InterruptedException      if the thread is interrupted while waiting for a response. This can
+	 *                                   happen due to shutdown signals.
 	 */
-	public Image push() throws IOException, TimeoutException, InterruptedException
+	public Image push() throws ResourceNotFoundException, IOException, TimeoutException, InterruptedException
 	{
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImagePush
 		String encodedName = name.replace("/", "%2F");
@@ -169,6 +180,8 @@ public final class ImagePusher
 		if (exception != null)
 		{
 			// Need to wrap the exception to ensure that it contains stack trace elements from the current thread
+			if (exception instanceof ResourceNotFoundException)
+				throw new ResourceNotFoundException(exception);
 			throw new IOException(exception);
 		}
 		return image;

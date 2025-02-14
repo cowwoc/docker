@@ -23,8 +23,6 @@ public final class DockerfileParserTest
 	@Test
 	public void addDirectory() throws IOException
 	{
-		DockerfileParser parser = new DockerfileParser();
-
 		Path buildContext = Files.createTempDirectory("docker-tests");
 		Path dockerfile = buildContext.resolve("Dockerfile");
 		Path libDirectory = buildContext.resolve("lib");
@@ -43,8 +41,7 @@ public final class DockerfileParserTest
 		library3 = buildContext.relativize(library3);
 		dockerfile = buildContext.relativize(dockerfile);
 
-		Predicate<Path> dockerfilePredicate = parser.parse(dockerfile, buildContext);
-
+		Predicate<Path> dockerfilePredicate = new DockerfileParser(dockerfile, buildContext).parse();
 		Set<Path> filesLeft = new HashSet<>(Set.of(dockerfile, library1, library2, library3));
 		Files.walkFileTree(buildContext, new SimpleFileVisitor<>()
 		{

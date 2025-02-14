@@ -1,9 +1,9 @@
 package com.github.cowwoc.docker.internal.util;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -17,54 +17,140 @@ import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.that;
 public final class DockerfileParser extends GlobParser
 {
 	/**
-	 * Creates a new instance.
+	 * The file being parsed.
 	 */
-	public DockerfileParser()
-	{
-	}
+	private final Path dockerfile;
+	/**
+	 * The directory that contains the Dockerfile.
+	 */
+	private final Path directoryOfDockerfile;
+	/**
+	 * The build context.
+	 */
+	private final Path buildContext;
+	/**
+	 * {@code true} if the previous line ended with a backslash line continuation.
+	 */
+	private boolean lineEndedWithContinuation;
+	/**
+	 * The command being constructed by the parser.
+	 * <p>
+	 * For multi-line commands, this accumulates fragments until the entire command is complete and ready for
+	 * processing.
+	 */
+	private final StringBuilder command = new StringBuilder();
 
 	/**
+	 * Creates a new Dockerfile parser.
+	 *
 	 * @param dockerfile   the path of a {@code Dockerfile}
 	 * @param buildContext the path of the build context
-	 * @return a {@code Predicate<Path>} that returns {@code true} if a path should be included from the build
-	 * 	context
 	 * @throws NullPointerException if any of the arguments are null
-	 * @throws IOException          if an error occurs while reading the file
 	 */
-	public Predicate<Path> parse(Path dockerfile, Path buildContext) throws IOException
+	public DockerfileParser(Path dockerfile, Path buildContext)
 	{
 		// Evaluate Dockerfile relative to the build context
 		assert that(dockerfile, "dockerfile").isRelative().elseThrow();
 		assert that(buildContext, "buildContext").isAbsolute().elseThrow();
+		this.dockerfile = dockerfile;
 
 		Path directoryOfDockerfile = dockerfile.getParent();
 		if (directoryOfDockerfile == null)
 			directoryOfDockerfile = Path.of("");
-		patterns.add(new PatternPredicate("", buildContext, false, "it is the build context"));
-		addPathsLeadingToDockerfile(dockerfile, directoryOfDockerfile, buildContext);
 
-		List<String> lines = Files.readAllLines(buildContext.resolve(dockerfile));
+		this.directoryOfDockerfile = directoryOfDockerfile;
+		this.buildContext = buildContext;
+	}
+
+	/**
+	 * @return a {@code Predicate<Path>} that returns {@code true} if a path should be included from the build
+	 * 	context
+	 * @throws IOException if an error occurs while reading the file
+	 */
+	public Predicate<Path> parse() throws IOException
+	{
+		patterns.add(new PatternPredicate("", buildContext, false, "it is the build context"));
+		addPathsLeadingToDockerfile(dockerfile);
+
 		int lineNumber = 0;
-		for (String line : lines)
+		try (BufferedReader reader = Files.newBufferedReader(buildContext.resolve(dockerfile)))
 		{
-			++lineNumber;
-			// https://docs.docker.com/build/concepts/dockerfile/#dockerfile-syntax
-			if (line.startsWith("#"))
-				continue;
-			processLine(line, lineNumber, directoryOfDockerfile, buildContext);
+			while (true)
+			{
+				++lineNumber;
+				String line = reader.readLine();
+				if (line == null)
+					break;
+				processLine(line, lineNumber);
+			}
+		}
+		if (lineEndedWithContinuation)
+			throw new IllegalArgumentException("Unexpected end of line: " + command);
+		if (!command.isEmpty())
+		{
+			// Run the last command
+			processCommand(lineNumber);
 		}
 		return getPredicate(patterns);
 	}
 
 	/**
-	 * Adds predicates for the Dockerfile and the directories leading to it.
+	 * Processes a single line of a Dockerfile command.
 	 *
-	 * @param dockerfile            the path of the Dockerfile relative to the build context
-	 * @param directoryOfDockerfile the directory of the Dockerfile
-	 * @param buildContext          the build context
+	 * @param line       the line
+	 * @param lineNumber the line number
 	 * @throws NullPointerException if any of the arguments are null
 	 */
-	private void addPathsLeadingToDockerfile(Path dockerfile, Path directoryOfDockerfile, Path buildContext)
+	private void processLine(String line, int lineNumber)
+	{
+		// https://docs.docker.com/build/concepts/dockerfile/#dockerfile-syntax
+		if (line.startsWith("#"))
+			return;
+		lineEndedWithContinuation = line.endsWith("\\");
+		if (lineEndedWithContinuation)
+		{
+			command.append(line, 0, line.length() - 1);
+			return;
+		}
+
+		String[] tokens = line.split("\\s+");
+		// Commands that may span multiple lines without a backslash at the end of the line
+		boolean commandMaySpanLines = switch (tokens[0])
+		{
+			case "LABEL", "ENV", "ARG", "VOLUME" -> true;
+			default -> false;
+		};
+		if (commandMaySpanLines)
+		{
+			if (!command.isEmpty())
+			{
+				processCommand(lineNumber);
+				command.delete(0, command.length());
+			}
+			command.append(line);
+			return;
+		}
+		if (line.startsWith(" "))
+		{
+			if (command.isEmpty())
+				throw new IllegalArgumentException("Invalid command on line " + line + ": " + line);
+			// The command is spanning multiple lines
+			command.append(line);
+			return;
+		}
+		// We have detected the end of a command
+		processCommand(lineNumber);
+		command.delete(0, command.length());
+		command.append(line);
+	}
+
+	/**
+	 * Adds predicates for the Dockerfile and the directories leading to it.
+	 *
+	 * @param dockerfile the path of the Dockerfile relative to the build context
+	 * @throws NullPointerException if {@code dockerfile} is null
+	 */
+	private void addPathsLeadingToDockerfile(Path dockerfile)
 	{
 		// Include the Dockerfile and the directories leading to it
 		patterns.add(new PatternPredicate(dockerfile, buildContext, false, "it is the Dockerfile"));
@@ -99,25 +185,17 @@ public final class DockerfileParser extends GlobParser
 	/**
 	 * Processes a single line.
 	 *
-	 * @param line                  the line
-	 * @param lineNumber            the number of the line
-	 * @param directoryOfDockerfile the directory that contains the Dockerfile
-	 * @param buildContext          the build context
+	 * @param lineNumber the number of the line
 	 * @throws NullPointerException     if any of the values are null
 	 * @throws IllegalArgumentException if the Dockerfile references paths outside the build context
 	 */
-	private void processLine(String line, int lineNumber, Path directoryOfDockerfile,
-		Path buildContext)
+	private void processCommand(int lineNumber)
 	{
-		// Evaluate commands relative to the build context
-		assert that(directoryOfDockerfile, "directoryOfDockerfile").isRelative().elseThrow();
-		assert that(buildContext, "buildContext").isAbsolute().elseThrow();
-
-		line = line.strip();
-		if (line.isEmpty())
+		String command = this.command.toString().strip();
+		if (command.isEmpty())
 			return;
 
-		String[] tokens = line.split("\\s+");
+		String[] tokens = command.split("\\s+");
 		switch (tokens[0])
 		{
 			case "ADD", "COPY" ->

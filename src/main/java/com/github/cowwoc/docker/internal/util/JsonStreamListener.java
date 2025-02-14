@@ -120,8 +120,12 @@ public abstract class JsonStreamListener extends AsyncResponseListener
 	 */
 	protected void processStatus(JsonNode node)
 	{
-		warnOnUnexpectedProperties(node, "status", "id");
-		String message = node.get("status").textValue() + "\n";
+		warnOnUnexpectedProperties(node, "status", "id", "progress", "progressDetail");
+		String message;
+		if (node.has("progress"))
+			message = node.get("progress").textValue() + "\n";
+		else
+			message = node.get("status").textValue() + "\n";
 		if (node.has("id"))
 			message = node.get("id").textValue() + ": " + message;
 

@@ -2,7 +2,7 @@ package com.github.cowwoc.docker.resource;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.cowwoc.docker.client.DockerClient;
-import com.github.cowwoc.docker.exception.ImageNotFoundException;
+import com.github.cowwoc.docker.exception.ResourceNotFoundException;
 import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
 import org.eclipse.jetty.client.ContentResponse;
@@ -329,20 +329,20 @@ public final class Image
 	 * @param name the name of the image (e.g. {@code nasa/rocket-ship} locally or
 	 *             {@code docker.io/nasa/rocket-ship} on a remote repository)
 	 * @param tag  the name of the tag (e.g., {@code latest})
-	 * @throws NullPointerException     if any of the arguments are null
-	 * @throws IllegalArgumentException if any of the arguments contain leading or trailing whitespace or are
-	 *                                  empty
-	 * @throws IllegalStateException    if the client is closed
-	 * @throws ImageNotFoundException   if the image does not exist
-	 * @throws IOException              if an I/O error occurs. These errors are typically transient, and
-	 *                                  retrying the request may resolve the issue.
-	 * @throws TimeoutException         if the request times out before receiving a response. This might
-	 *                                  indicate network latency or server overload.
-	 * @throws InterruptedException     if the thread is interrupted while waiting for a response. This can
-	 *                                  happen due to shutdown signals.
+	 * @throws NullPointerException      if any of the arguments are null
+	 * @throws IllegalArgumentException  if any of the arguments contain leading or trailing whitespace or are
+	 *                                   empty
+	 * @throws IllegalStateException     if the client is closed
+	 * @throws ResourceNotFoundException if the image no longer exists
+	 * @throws IOException               if an I/O error occurs. These errors are typically transient, and
+	 *                                   retrying the request may resolve the issue.
+	 * @throws TimeoutException          if the request times out before receiving a response. This might
+	 *                                   indicate network latency or server overload.
+	 * @throws InterruptedException      if the thread is interrupted while waiting for a response. This can
+	 *                                   happen due to shutdown signals.
 	 */
 	public void tag(String name, String tag)
-		throws ImageNotFoundException, IOException, TimeoutException, InterruptedException
+		throws ResourceNotFoundException, IOException, TimeoutException, InterruptedException
 	{
 		requireThat(name, "name").isStripped().isNotEmpty();
 		requireThat(tag, "tag").isStripped().isNotEmpty();
@@ -364,7 +364,7 @@ public final class Image
 			case NOT_FOUND_404 ->
 			{
 				JsonNode json = client.getJsonMapper().readTree(serverResponse.getContentAsString());
-				throw new ImageNotFoundException(json.get("message").textValue());
+				throw new ResourceNotFoundException(json.get("message").textValue());
 			}
 			default -> throw new AssertionError("Unexpected response: " + client.toString(serverResponse) + "\n" +
 				"Request: " + client.toString(request));
@@ -374,16 +374,16 @@ public final class Image
 	/**
 	 * Pushes an image to a remote repository.
 	 *
-	 * @param name the name of the image to push. For example, {@code docker.io/nasa/rocket-ship}
-	 * @param tag  the tag to push
+	 * @param name the name of the image to push. For example, {@code docker.io/nasa/rocket-ship}. The image
+	 *             must be present in the local image store with the same name. If no tag is specified,
+	 *             {@code latest} is used by default.
 	 * @return the push configuration
-	 * @throws NullPointerException     if any of the arguments are null
-	 * @throws IllegalArgumentException if any of the arguments contain leading or trailing whitespace or are
-	 *                                  empty
+	 * @throws NullPointerException     if {@code name} is null
+	 * @throws IllegalArgumentException if {@code name} contains leading or trailing whitespace or is empty
 	 */
-	public ImagePusher pusher(String name, String tag)
+	public ImagePusher pusher(String name)
 	{
-		return new ImagePusher(client, this, name, tag);
+		return new ImagePusher(client, this, name);
 	}
 
 	/**

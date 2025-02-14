@@ -36,7 +36,6 @@ import static org.eclipse.jetty.http.HttpMethod.POST;
  */
 public final class ImageBuilder
 {
-	private final DockerfileParser dockerfileParser = new DockerfileParser();
 	private final DockerignoreParser dockerignoreParser = new DockerignoreParser();
 	private final InternalClient client;
 	private Path buildContext = Path.of(".").toAbsolutePath().normalize();
@@ -173,7 +172,8 @@ public final class ImageBuilder
 				request.param("cachefrom", arrayNode.toString());
 		}
 
-		Predicate<Path> dockerFilePredicate = dockerfileParser.parse(dockerfileAsPath, absoluteBuildContext);
+		Predicate<Path> dockerFilePredicate = new DockerfileParser(dockerfileAsPath, absoluteBuildContext).
+			parse();
 
 		// Per https://docs.docker.com/build/concepts/context/#filename-and-location:
 		// A Dockerfile-specific ignore-file takes precedence over the .dockerignore file at the root of the

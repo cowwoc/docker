@@ -54,13 +54,15 @@ public final class Node
 	public static Node getById(DockerClient client, String id)
 		throws IOException, TimeoutException, InterruptedException
 	{
-		InternalClient internalClient = (InternalClient) client;
+		requireThat(id, "id").isStripped().isNotEmpty();
+
+		InternalClient ic = (InternalClient) client;
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Node/operation/NodeInspect
-		URI uri = internalClient.getServer().resolve("nodes/" + id);
-		Request request = internalClient.createRequest(uri).
+		URI uri = ic.getServer().resolve("nodes/" + id);
+		Request request = ic.createRequest(uri).
 			method(GET);
 
-		ContentResponse serverResponse = internalClient.send(request);
+		ContentResponse serverResponse = ic.send(request);
 		switch (serverResponse.getStatus())
 		{
 			case OK_200 ->
@@ -73,21 +75,20 @@ public final class Node
 			}
 			case INTERNAL_SERVER_ERROR_500 ->
 			{
-				JsonNode json = internalClient.getJsonMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = ic.getJsonMapper().readTree(serverResponse.getContentAsString());
 				throw new IOException(json.get("message").textValue());
 			}
 			case SERVICE_UNAVAILABLE_503 ->
 			{
 				// The node is not part of a swarm
-				JsonNode json = internalClient.getJsonMapper().readTree(serverResponse.getContentAsString());
+				JsonNode json = ic.getJsonMapper().readTree(serverResponse.getContentAsString());
 				throw new IllegalStateException(json.get("message").textValue());
 			}
-			default -> throw new AssertionError(
-				"Unexpected response: " + internalClient.toString(serverResponse) + "\n" +
-					"Request: " + internalClient.toString(request));
+			default -> throw new AssertionError("Unexpected response: " + ic.toString(serverResponse) + "\n" +
+				"Request: " + ic.toString(request));
 		}
-		JsonNode body = internalClient.getResponseBody(serverResponse);
-		return getByJson(internalClient, body);
+		JsonNode body = ic.getResponseBody(serverResponse);
+		return getByJson(ic, body);
 	}
 
 	/**

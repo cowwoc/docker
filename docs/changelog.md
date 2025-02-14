@@ -6,13 +6,18 @@ See https://github.com/cowwoc/docker/commits/main for a full list.
 
 * Bugfix: `ImageBuilder` was not including files recursively when parsing the `ADD` or `COPY` commands.
 * Bugfix: `ImagePuller.pull()` was always returning `null`.
+* Bugfix: `Container.getById()` was throwing an exception if no match was found instead of returning `null`.
 * Replaced `Node.getByName()` with `Node.getById()`.
+* Replaced `Container.getByName()` with `Container.getById()`.
 * Replaced `Swarm.getNodeById()` and `Swarm.getNodeByName()` with `Node.getById()`.
+* Replaced `ContainerNotFoundException` and `ImageNotFoundException` with `ResourceNotFoundException`.
 * Renamed `Image.getNameToTag()` to `Image.getNameToTags()`.
 * Renamed `Image.getNameToDigest()` to `Image.getNameToDigests()`.
-* Removed `DockerClient` parameter from non-static method `Image.pusher()` since it already has an associated
-  client.
+* Replaced non-static method `Image.pusher(client, name, tag)` with `Image.pusher(name)` where `name` may
+  include a tag. The image already has an associated client, so there is no need to pass it a second time.
 * Added `Container.LogStreams.getExceptions()`.
+* Added `Network`.
+* Added support for Dockerfile commands that span multiple lines such as `ENTRYPOINT []`.
 
 ## Version 0.6 - 2025/01/17
 
