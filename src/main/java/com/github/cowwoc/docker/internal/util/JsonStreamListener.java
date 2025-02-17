@@ -100,7 +100,7 @@ public abstract class JsonStreamListener extends AsyncResponseListener
 				break;
 			line = responseAsString.substring(0, newline);
 			responseAsString.delete(0, newline + System.lineSeparator().length());
-			if (!line.isEmpty())
+			if (!line.isBlank())
 				processObject(line);
 		}
 		if (endOfInput && !responseAsString.isEmpty())

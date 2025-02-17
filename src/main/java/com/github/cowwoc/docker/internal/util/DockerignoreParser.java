@@ -88,7 +88,7 @@ public final class DockerignoreParser extends GlobParser
 		line = line.strip();
 		if (line.isEmpty())
 			return;
-		line = Path.of(line).normalize().toString();
+		line = Path.of(line).normalize().toString().strip();
 		// Per https://docs.docker.com/build/concepts/context/#syntax:
 		// For historical reasons, the pattern . is ignored.
 		if (line.isEmpty())

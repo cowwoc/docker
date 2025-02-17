@@ -47,11 +47,11 @@ public final class Strings
 			if (index == -1)
 				break;
 			String line = lines.substring(0, index);
-			if (!line.isEmpty())
+			if (!line.isBlank())
 				result.add(line);
 			lines = lines.substring(index + 1);
 		}
-		if (!lines.isEmpty())
+		if (!lines.isBlank())
 			result.add(lines);
 		return result;
 	}
