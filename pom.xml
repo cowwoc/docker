@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.github.cowwoc.docker</groupId>
 	<artifactId>docker</artifactId>
@@ -52,7 +53,7 @@
 		<pmd.version>7.10.0</pmd.version>
 		<maven.checkstyle.version>3.6.0</maven.checkstyle.version>
 		<checkstyle.failOnViolation>true</checkstyle.failOnViolation>
-		<requirements.version>10.12</requirements.version>
+		<requirements.version>11.0</requirements.version>
 	</properties>
 
 	<dependencies>
@@ -73,12 +74,12 @@
 		</dependency>
 		<dependency>
 			<groupId>com.github.cowwoc.requirements</groupId>
-			<artifactId>java</artifactId>
+			<artifactId>requirements-java</artifactId>
 			<version>${requirements.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.github.cowwoc.requirements</groupId>
-			<artifactId>jackson</artifactId>
+			<artifactId>requirements-jackson</artifactId>
 			<version>${requirements.version}</version>
 		</dependency>
 		<dependency>
