@@ -200,15 +200,22 @@ public final class DockerfileParser extends GlobParser
 		{
 			case "ADD", "COPY" ->
 			{
-				if (tokens.length < 2)
+				int sourceIndex = getIndexOfArgument(tokens, 1);
+				if (sourceIndex == -1)
 				{
 					throw new IllegalArgumentException("dockerfile parse error on line " + lineNumber + ": " +
-						tokens[0] + " requires at least two arguments, but only one was provided.");
+						tokens[0] + " requires at least two arguments, but none were provided: " + command);
+				}
+				int targetIndex = getIndexOfArgument(tokens, sourceIndex + 1);
+				if (targetIndex == -1)
+				{
+					throw new IllegalArgumentException("dockerfile parse error on line " + lineNumber + ": " +
+						tokens[0] + " requires at least two arguments, but only one was provided: " + command);
 				}
 				// ADD/COPY paths evaluated relative to the build context
 				// We need to convert it to an absolute path, normalize and relativize it because the argument may
 				// contain an absolute path.
-				Path sourceAsPath = buildContext.relativize(buildContext.resolve(tokens[1]).normalize());
+				Path sourceAsPath = buildContext.relativize(buildContext.resolve(tokens[sourceIndex]).normalize());
 
 				// Per https://github.com/docker/docs/issues/21827 if you specify a path outside the build context,
 				// such as "ADD ../something /something" then the CLI will strip out the parent directories until the
@@ -238,11 +245,28 @@ public final class DockerfileParser extends GlobParser
 
 				StringBuilder regex = globToRegex(glob);
 				patterns.addAll(convertRegexToPredicates(regex, false, "it was referenced by the Dockerfile's " +
-					tokens[0] + " " + tokens[1] + " command", buildContext));
+					tokens[0] + " command on line " + lineNumber, buildContext));
 			}
 			default ->
 			{
 			}
 		}
+	}
+
+	/**
+	 * Returns the index of the first command argument (any value that does not start with {@code --}).
+	 *
+	 * @param tokens zero or more String values
+	 * @param start  the index to start searching at
+	 * @return -1 if no match is found
+	 */
+	private int getIndexOfArgument(String[] tokens, int start)
+	{
+		for (int i = start; i < tokens.length; ++i)
+		{
+			if (!tokens[i].startsWith("--"))
+				return i;
+		}
+		return -1;
 	}
 }
