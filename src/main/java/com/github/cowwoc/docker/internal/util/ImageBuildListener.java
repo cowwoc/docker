@@ -32,7 +32,7 @@ public final class ImageBuildListener extends JsonStreamListener
 	 */
 	private static final int NANOS_PER_DECISECOND = 100_000_000;
 	private final Decoder base64 = Base64.getDecoder();
-	public String imageId;
+	private String imageId;
 
 	/**
 	 * Creates a new instance.
@@ -127,5 +127,13 @@ public final class ImageBuildListener extends JsonStreamListener
 		{
 			responseReady.countDown();
 		}
+	}
+
+	/**
+	 * @return the ID of the new image
+	 */
+	public String getImageId()
+	{
+		return imageId;
 	}
 }

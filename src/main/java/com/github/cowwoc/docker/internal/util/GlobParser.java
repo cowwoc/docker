@@ -15,6 +15,9 @@ import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.requir
  */
 public abstract class GlobParser
 {
+	/**
+	 * Predicates that match files according to the contents of the parsed file.
+	 */
 	protected final Set<PatternPredicate> patterns = new HashSet<>();
 
 	/**
@@ -31,6 +34,9 @@ public abstract class GlobParser
 	 */
 	protected static final Set<Character> SPECIAL_CHARACTERS = Set.of('.', '+', '|', '(', ')', '{', '}', '$',
 		'\\');
+	/**
+	 * The logger.
+	 */
 	protected final Logger log = LoggerFactory.getLogger(getClass());
 
 	/**

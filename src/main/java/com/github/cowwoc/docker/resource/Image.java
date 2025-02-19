@@ -173,6 +173,7 @@ public final class Image
 	 * @param id     an identifier of the image. Local images may be identified by their name, digest or ID.
 	 *               Remote images may be identified by their name or ID. If a name is specified, it may include
 	 *               a tag or a digest.
+	 * @return a new image puller
 	 * @throws NullPointerException     if any of the arguments are null
 	 * @throws IllegalArgumentException if {@code id} contains leading or trailing whitespace or is empty
 	 */

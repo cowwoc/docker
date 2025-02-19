@@ -33,6 +33,9 @@ public abstract class JsonStreamListener extends AsyncResponseListener
 	protected static final Duration PROGRESS_FREQUENCY = Duration.ofSeconds(2);
 	private final CharsetDecoder decoder = UTF_8.newDecoder();
 	private final CharBuffer charBuffer = CharBuffer.allocate(200);
+	/**
+	 * The string representation of the server response.
+	 */
 	protected final StringBuilder responseAsString = new StringBuilder();
 	/**
 	 * Maps a message to the last time that it was logged.
