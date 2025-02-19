@@ -301,6 +301,57 @@
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-checkstyle-plugin</artifactId>
+				<version>${maven.checkstyle.version}</version>
+				<dependencies>
+					<dependency>
+						<groupId>com.puppycrawl.tools</groupId>
+						<artifactId>checkstyle</artifactId>
+						<version>10.21.1</version>
+					</dependency>
+				</dependencies>
+				<configuration>
+					<configLocation>${project.basedir}/build/src/main/resources/checkstyle.xml</configLocation>
+					<consoleOutput>true</consoleOutput>
+					<failOnViolation>${checkstyle.failOnViolation}</failOnViolation>
+					<linkXRef>false</linkXRef>
+					<includeTestSourceDirectory>true</includeTestSourceDirectory>
+				</configuration>
+				<executions>
+					<execution>
+						<phase>verify</phase>
+						<goals>
+							<goal>check</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-pmd-plugin</artifactId>
+				<configuration>
+					<excludeRoots>${project.build.directory}/generated-sources</excludeRoots>
+					<printFailingErrors>true</printFailingErrors>
+					<rulesets>
+						<ruleset>build/src/main/resources/pmd.xml</ruleset>
+					</rulesets>
+					<analysisCache>true</analysisCache>
+					<linkXRef>false</linkXRef>
+					<targetJdk>${maven.compiler.release}</targetJdk>
+					<excludeRoots>
+						<excludeRoot>target/generated-sources</excludeRoot>
+					</excludeRoots>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>check</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-release-plugin</artifactId>
 				<configuration>
 					<autoVersionSubmodules>true</autoVersionSubmodules>
@@ -342,27 +393,6 @@
 								</licenseMerge>
 							</licenseMerges>
 						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-pmd-plugin</artifactId>
-				<configuration>
-					<excludeRoots>${project.build.directory}/generated-sources</excludeRoots>
-					<printFailingErrors>true</printFailingErrors>
-					<rulesets>
-						<ruleset>build/src/main/resources/pmd.xml</ruleset>
-					</rulesets>
-					<analysisCache>true</analysisCache>
-					<linkXRef>false</linkXRef>
-					<targetJdk>${maven.compiler.release}</targetJdk>
-				</configuration>
-				<executions>
-					<execution>
-						<goals>
-							<goal>check</goal>
-						</goals>
 					</execution>
 				</executions>
 			</plugin>

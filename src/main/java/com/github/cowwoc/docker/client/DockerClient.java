@@ -44,7 +44,7 @@ public interface DockerClient extends AutoCloseable
 	 * Creates a client that communicates with the server over a Unix socket.
 	 *
 	 * @param path the unix socket of the REST server (e.g. {@code /var/run/docker.sock})
-	 * @param mode the run mode
+	 * @param mode the runtime mode
 	 * @return a new client
 	 * @throws NullPointerException if any of the arguments are null
 	 */
@@ -58,7 +58,7 @@ public interface DockerClient extends AutoCloseable
 	 * Creates a client that communicates with the server over TCP/IP.
 	 *
 	 * @param uri  the URI of the REST server (e.g. {@code http://localhost:2375/})
-	 * @param mode the run mode
+	 * @param mode the runtime mode
 	 * @return a new client
 	 * @throws NullPointerException if any of the arguments are null
 	 */

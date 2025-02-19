@@ -25,6 +25,9 @@ import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.requir
 import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.that;
 import static org.eclipse.jetty.http.HttpMethod.GET;
 
+/**
+ * A container's logs.
+ */
 public final class ContainerLogs
 {
 	private final InternalClient client;

@@ -157,6 +157,8 @@ public final class Network
 	 * @param subnet  the network's subnet CIDR
 	 * @param gateway the network's gateway
 	 */
+	// WORKAROUND: https://github.com/checkstyle/checkstyle/issues/15683
+	@SuppressWarnings("checkstyle:javadocmethod")
 	public record Configuration(String subnet, String gateway)
 	{
 		/**

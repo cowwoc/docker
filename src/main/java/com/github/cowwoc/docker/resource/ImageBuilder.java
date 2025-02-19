@@ -206,7 +206,7 @@ public final class ImageBuilder
 			// Ensure that the returned exception stack trace contains a reference to the current method
 			throw new IOException(exception);
 		}
-		return new Image(client, responseListener.imageId, Map.of(), Map.of());
+		return new Image(client, responseListener.getImageId(), Map.of(), Map.of());
 	}
 
 	/**

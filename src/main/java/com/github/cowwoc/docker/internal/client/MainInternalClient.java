@@ -81,6 +81,7 @@ public final class MainInternalClient implements InternalClient
 	 * @param server    the URI of the REST API server. For unix sockets, use {@code http://localhost/}.
 	 * @param transport the {@code Transport} used to communicate with the Docker server. For TCP sockets use
 	 *                  {@code Transport.TCP_IP}. For Unix sockets use {@code new Transport.TCPUnix(path)}.
+	 * @param mode      the runtime mode
 	 * @throws NullPointerException if any of the arguments are null
 	 */
 	public MainInternalClient(URI server, Transport transport, RunMode mode)

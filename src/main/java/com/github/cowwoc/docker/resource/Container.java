@@ -306,9 +306,13 @@ public final class Container
 	 * @param code  the container's exit code
 	 * @param error explains why the wait operation failed, or an empty string on success
 	 */
+	// WORKAROUND: https://github.com/checkstyle/checkstyle/issues/15683
+	@SuppressWarnings("checkstyle:javadocmethod")
 	public record WaitForStopResult(long code, String error)
 	{
 		/**
+		 * Creates a new instance.
+		 *
 		 * @param code  the container's exit code
 		 * @param error explains why the wait operation failed, or an empty string on success
 		 * @throws NullPointerException if {@code error} is null

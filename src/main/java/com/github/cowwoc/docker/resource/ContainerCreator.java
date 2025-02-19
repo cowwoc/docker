@@ -262,6 +262,7 @@ public final class ContainerCreator
 	/**
 	 * Creates the container.
 	 *
+	 * @return the result of the operation
 	 * @throws IllegalStateException if the client is closed
 	 * @throws IOException           if an I/O error occurs. These errors are typically transient, and retrying
 	 *                               the request may resolve the issue.
@@ -396,6 +397,8 @@ public final class ContainerCreator
 	 * @param options       mounting options
 	 * @see <a href="https://docs.docker.com/engine/storage/bind-mounts/">bind mounts</a>
 	 */
+	// WORKAROUND: https://github.com/checkstyle/checkstyle/issues/15683
+	@SuppressWarnings("checkstyle:javadocmethod")
 	private record BindMount(String containerPath, BindMountOptions... options)
 	{
 		/**
@@ -420,6 +423,8 @@ public final class ContainerCreator
 	 * @param container the created container
 	 * @param warnings  warnings encountered when creating the container
 	 */
+	// WORKAROUND: https://github.com/checkstyle/checkstyle/issues/15683
+	@SuppressWarnings("checkstyle:javadocmethod")
 	public record CreateResult(Container container, List<String> warnings)
 	{
 		/**
@@ -448,6 +453,8 @@ public final class ContainerCreator
 	 * @param maximumRetryCount if {@link RestartPolicyCondition#ON_FAILURE} is used, the number of times to
 	 *                          retry before giving up
 	 */
+	// WORKAROUND: https://github.com/checkstyle/checkstyle/issues/15683
+	@SuppressWarnings("checkstyle:javadocmethod")
 	public record RestartPolicy(RestartPolicyCondition condition, int maximumRetryCount)
 	{
 		/**
