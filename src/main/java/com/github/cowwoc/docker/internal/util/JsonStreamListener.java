@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.pouch.core.WrappedCheckedException;
 import org.eclipse.jetty.client.Response;
+import org.slf4j.event.Level;
 
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -124,15 +125,7 @@ public abstract class JsonStreamListener extends AsyncResponseListener
 		if (node.has("id"))
 			message = node.get("id").textValue() + ": " + message;
 
-		Instant now = Instant.now();
-		Instant lastTime = messageToTime.get(message);
-		if (lastTime == null || Duration.between(lastTime, now).compareTo(PROGRESS_FREQUENCY) >= 0)
-		{
-			// Only log the status if it's changed or PROGRESS_FREQUENCY has elapsed
-			messageToTime.put(message, now);
-			for (String line : Strings.split(message))
-				log.info(line);
-		}
+		logMessage(message, Level.INFO);
 	}
 
 	/**
@@ -147,6 +140,24 @@ public abstract class JsonStreamListener extends AsyncResponseListener
 		catch (JsonProcessingException e)
 		{
 			throw WrappedCheckedException.wrap(e);
+		}
+	}
+
+	/**
+	 * @param message the message to log
+	 * @param level   the logging level
+	 * @throws NullPointerException if any of the arguments are null
+	 */
+	protected void logMessage(String message, Level level)
+	{
+		Instant now = Instant.now();
+		Instant lastTime = messageToTime.get(message);
+		if (lastTime == null || Duration.between(lastTime, now).compareTo(PROGRESS_FREQUENCY) >= 0)
+		{
+			// Only log the status if it's changed or PROGRESS_FREQUENCY has elapsed
+			messageToTime.put(message, now);
+			for (String line : Strings.split(message))
+				log.atLevel(level).log(line);
 		}
 	}
 }

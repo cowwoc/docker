@@ -2,12 +2,20 @@ package com.github.cowwoc.docker.internal.util;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.cowwoc.docker.internal.client.InternalClient;
+import com.google.protobuf.InvalidProtocolBufferException;
+import moby.buildkit.v1.ControlOuterClass.StatusResponse;
+import moby.buildkit.v1.ControlOuterClass.Vertex;
+import moby.buildkit.v1.ControlOuterClass.VertexStatus;
 import org.eclipse.jetty.client.Response;
 import org.eclipse.jetty.client.Result;
+import org.slf4j.event.Level;
 
 import java.io.IOException;
+import java.util.Base64;
+import java.util.Base64.Decoder;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.that;
 import static org.eclipse.jetty.http.HttpStatus.BAD_REQUEST_400;
 import static org.eclipse.jetty.http.HttpStatus.INTERNAL_SERVER_ERROR_500;
 import static org.eclipse.jetty.http.HttpStatus.OK_200;
@@ -19,6 +27,11 @@ import static org.eclipse.jetty.util.BufferUtil.EMPTY_BUFFER;
 @SuppressWarnings("ClassEscapesDefinedScope")
 public final class ImageBuildListener extends JsonStreamListener
 {
+	/**
+	 * The number of nanoseconds per one tength of a second.
+	 */
+	private static final int NANOS_PER_DECISECOND = 100_000_000;
+	private final Decoder base64 = Base64.getDecoder();
 	public String imageId;
 
 	/**
@@ -35,32 +48,51 @@ public final class ImageBuildListener extends JsonStreamListener
 	@Override
 	protected void processUnknownProperties(JsonNode json)
 	{
-		JsonNode node = json.get("stream");
+		JsonNode node = json.get("aux");
 		if (node != null)
 		{
-			warnOnUnexpectedProperties(json, "stream");
-			String message = node.textValue();
-			for (String line : Strings.split(message))
-				log.info(line);
-			return;
-		}
-		node = json.get("aux");
-		if (node != null)
-		{
-			warnOnUnexpectedProperties(json, "aux");
-			warnOnUnexpectedProperties(node, "ID");
-			assert (imageId == null);
-			JsonNode idNode = node.get("ID");
-			imageId = idNode.textValue();
-			return;
-		}
-		// BUG: https://github.com/docker/docs/issues/21803
-		if (json.has("status"))
-		{
-			processStatus(json);
-			return;
+			warnOnUnexpectedProperties(json, "id", "aux");
+			try
+			{
+				if (node.isTextual())
+				{
+					// BuildKit output
+					String id = json.get("id").textValue();
+					assert that(id, "id").isEqualTo("moby.buildkit.trace").elseThrow();
+
+					byte[] aux = base64.decode(node.textValue());
+					StatusResponse statusResponse = StatusResponse.parseFrom(aux);
+					processStatus(statusResponse);
+					return;
+				}
+				warnOnUnexpectedProperties(node, "ID");
+				assert (imageId == null) : imageId;
+				imageId = node.get("ID").textValue();
+				return;
+			}
+			catch (InvalidProtocolBufferException e)
+			{
+				exceptions.add(e);
+				return;
+			}
 		}
 		exceptions.add(new IOException("Unexpected response: " + json.toPrettyString()));
+	}
+
+	private void processStatus(StatusResponse status)
+	{
+		assert that(status.getLogsCount(), "status.getLogsCount()").isEqualTo(0).elseThrow();
+		assert that(status.getWarningsCount(), "status.getWarningsCount()").isEqualTo(0).elseThrow();
+
+		for (Vertex vertex : status.getVertexesList())
+		{
+			if (!(vertex.hasStarted() && vertex.hasCompleted()))
+				continue;
+			String name = vertex.getName();
+			logMessage(name, Level.INFO);
+		}
+		for (VertexStatus vertex : status.getStatusesList())
+			logMessage(vertex.getID(), Level.DEBUG);
 	}
 
 	@Override
