@@ -1,4 +1,4 @@
-package com.github.cowwoc.docker.internal.util;
+package com.github.cowwoc.docker.client;
 
 /**
  * Runtime modes.

@@ -3,6 +3,7 @@ package com.github.cowwoc.docker.internal.client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.github.cowwoc.docker.client.DockerClient;
+import com.github.cowwoc.docker.client.RunMode;
 import com.github.cowwoc.pouch.core.WrappedCheckedException;
 import org.eclipse.jetty.client.ContentResponse;
 import org.eclipse.jetty.client.Request;
@@ -10,7 +11,6 @@ import org.eclipse.jetty.client.Response;
 
 import java.io.IOException;
 import java.net.URI;
-import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
@@ -20,10 +20,10 @@ import java.util.concurrent.TimeoutException;
 public interface InternalClient extends DockerClient
 {
 	/**
-	 * Defines the frequency at which it is acceptable to log the same message to indicate that the thread is
-	 * still active. This helps in monitoring the progress and ensuring the thread has not become unresponsive.
+	 * @return the runtime mode
+	 * @throws IllegalStateException if the scope is closed
 	 */
-	Duration PROGRESS_FREQUENCY = Duration.ofSeconds(2);
+	RunMode getRunMode();
 
 	/**
 	 * Returns the JSON configuration.

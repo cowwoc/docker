@@ -54,6 +54,8 @@
 		<maven.checkstyle.version>3.6.0</maven.checkstyle.version>
 		<checkstyle.failOnViolation>true</checkstyle.failOnViolation>
 		<requirements.version>11.0</requirements.version>
+		<protobuf.version>4.29.3</protobuf.version>
+		<buildkit.version>v0.20</buildkit.version>
 	</properties>
 
 	<dependencies>
@@ -106,6 +108,11 @@
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-compress</artifactId>
 			<version>1.27.1</version>
+		</dependency>
+		<dependency>
+			<groupId>com.google.protobuf</groupId>
+			<artifactId>protobuf-java</artifactId>
+			<version>${protobuf.version}</version>
 		</dependency>
 
 		<dependency>
@@ -245,13 +252,28 @@
 									<ignoreVersions>
 										<ignoreVersion>
 											<type>regex</type>
-											<version>(.+-SNAPSHOT|.+(-|\.)M\d|.+(-|\.)(alpha|beta).+)|.+-rc(-|\.).*</version>
+											<version>(?i)(.+-snapshot|.+(-|\.)M\d|.+(-|\.)(alpha|beta).+)|.+-rc(-|\.|\d).*</version>
 										</ignoreVersion>
 									</ignoreVersions>
 								</rule>
 							</rules>
 						</ruleSet>
 					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>io.github.ascopes</groupId>
+					<artifactId>protobuf-maven-plugin</artifactId>
+					<version>2.10.3</version>
+				</plugin>
+				<plugin>
+					<groupId>io.github.download-maven-plugin</groupId>
+					<artifactId>download-maven-plugin</artifactId>
+					<version>2.0.0</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-antrun-plugin</artifactId>
+					<version>3.1.0</version>
 				</plugin>
 			</plugins>
 		</pluginManagement>
@@ -345,6 +367,362 @@
 				</executions>
 			</plugin>
 			<plugin>
+				<groupId>io.github.download-maven-plugin</groupId>
+				<artifactId>download-maven-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>download-buildkit-control-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/api/services/control/control.proto
+							</url>
+							<outputDirectory>
+								${project.build.directory}/buildkit/github.com/moby/buildkit/api/services/control
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-buildkit-worker-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/api/types/worker.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/buildkit/api/types
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-buildkit-ops-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/solver/pb/ops.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/buildkit/solver/pb
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-buildkit-policy-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/sourcepolicy/pb/policy.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/buildkit/sourcepolicy/pb
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-buildkit-errdefs-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/solver/errdefs/errdefs.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/solver/errdefs
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-buildkit-gateway-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/frontend/gateway/pb/gateway.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/frontend/gateway/pb
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-buildkit-stack-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/util/stack/stack.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/util/stack
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-buildkit-caps-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/util/apicaps/pb/caps.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/buildkit/util/apicaps/pb
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-buildkit-auth-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/session/auth/auth.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/session/auth
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-buildkit-ssh-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/session/sshforward/ssh.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/session/sshforward
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-buildkit-secrets-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/session/secrets/secrets.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/session/secrets
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-buildkit-upload-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/session/upload/upload.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/session/upload
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-buildkit-filesync-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/session/filesync/filesync.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/session/filesync
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-buildkit-checksum-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/cache/contenthash/checksum.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/cache/contenthash
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-google-timestamp-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/protocolbuffers/protobuf/refs/tags/v29.3/src/google/protobuf/timestamp.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/google/protobuf
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-google-any-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/protocolbuffers/protobuf/refs/tags/v29.3/src/google/protobuf/any.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/google/protobuf
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-google-descriptor-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/protocolbuffers/protobuf/refs/tags/v29.3/src/google/protobuf/descriptor.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/google/protobuf
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-google-status-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/googleapis/googleapis/master/google/rpc/status.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/google/rpc
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-tonistiigi-stat-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								<!-- Commit ID taken from https://github.com/moby/buildkit/blob/master/go.mod -->
+								https://raw.githubusercontent.com/tonistiigi/fsutil/b14e27f4135a/types/stat.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/github.com/tonistiigi/fsutil/types
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-tonistiigi-wire-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/tonistiigi/fsutil/b14e27f4135a/types/wire.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/github.com/tonistiigi/fsutil/types
+							</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-planetscale-ext-proto</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>
+								https://raw.githubusercontent.com/planetscale/vtprotobuf/0393e58bdf10/include/github.com/planetscale/vtprotobuf/vtproto/ext.proto
+							</url>
+							<outputDirectory>${project.build.directory}/buildkit/github.com/planetscale/vtprotobuf/vtproto
+							</outputDirectory>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-antrun-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>replace-proto-package</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+						<configuration>
+							<target>
+								<!--
+								Rename the package of generated classes to avoid a conflict with the
+								com.google.protobuf:protobuf-java dependency.
+								-->
+								<replaceregexp match="option java_package = &quot;com.google.protobuf&quot;;"
+								               replace="option java_package = &quot;com.google.protobuf.generated&quot;;"
+								               flags="g">
+									<fileset dir="${project.build.directory}/buildkit">
+										<include name="**/*.proto"/>
+									</fileset>
+								</replaceregexp>
+								<!-- Remove unused import to avoid compile-time warning -->
+								<replaceregexp
+									match="import &quot;github.com/planetscale/vtprotobuf/vtproto/ext.proto&quot;;\n"
+									replace=""
+									flags="g">
+									<fileset dir="${project.build.directory}/buildkit/github.com/tonistiigi/fsutil/types">
+										<include name="stat.proto"/>
+									</fileset>
+								</replaceregexp>
+							</target>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>io.github.ascopes</groupId>
+				<artifactId>protobuf-maven-plugin</artifactId>
+				<executions>
+					<execution>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<sourceDirectories>
+								<sourceDirectory>${project.build.directory}/buildkit</sourceDirectory>
+							</sourceDirectories>
+							<protocVersion>${protobuf.version}</protocVersion>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<executions>
@@ -354,9 +732,8 @@
 							<goal>compile</goal>
 						</goals>
 						<configuration>
-							<excludes>${project.build.outputDirectory}/generated-sources</excludes>
 							<compilerArgs>
-								<arg>-Xlint:all,-module,-requires-automatic,-preview,-requires-transitive-automatic</arg>
+								<arg>-Xlint:all,-module,-requires-automatic,-requires-transitive-automatic</arg>
 								<arg>-Xdiags:verbose</arg>
 								<arg>-Werror</arg>
 							</compilerArgs>

@@ -2,8 +2,9 @@ Minor updates involving cosmetic changes have been omitted from this list.
 
 See https://github.com/cowwoc/docker/commits/main for a full list.
 
-## Version 0.8 - ?
+## Version 0.8 - 2025/02/19
 
+* Replaced support for the legacy builder with BuildKit.
 * Bugfix: `ImageBuilder` was not including files recursively when parsing the `ADD` or `COPY` commands.
 * Bugfix: `ImagePuller.pull()` was always returning `null`.
 * Bugfix: `Container.getById()` was throwing an exception if no match was found instead of returning `null`.
@@ -12,10 +13,10 @@ See https://github.com/cowwoc/docker/commits/main for a full list.
 * Replaced `Swarm.getNodeById()` and `Swarm.getNodeByName()` with `Node.getById()`.
 * Replaced `ContainerNotFoundException` and `ImageNotFoundException` with `ResourceNotFoundException`.
 * Renamed `Image.getNameToTag()` to `Image.getNameToTags()`.
-* Renamed `Image.getNameToDigest()` to `Image.getNameToDigests()`.
 * Replaced non-static method `Image.pusher(client, name, tag)` with `Image.pusher(name)` where `name` may
   include a tag. The image already has an associated client, so there is no need to pass it a second time.
-* Added `Container.LogStreams.getExceptions()`.
+* Moved `Container.LogStreams` to `ContainerLogs.Streams`.
+* Added `LogStreams.getExceptions()`.
 * Added `Network`.
 * Added support for Dockerfile commands that span multiple lines such as `ENTRYPOINT []`.
 

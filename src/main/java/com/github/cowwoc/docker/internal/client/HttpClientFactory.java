@@ -12,15 +12,24 @@ import java.time.Duration;
  */
 public final class HttpClientFactory extends ConcurrentLazyFactory<HttpClient>
 {
-	private final Duration clientTimeout;
+	private final Duration connectTimeout;
+	private final Duration idleTimeout;
 	private final QueuedThreadPool clientExecutor;
 
 	/**
 	 * Creates a new HttpClientFactory.
+	 *
+	 * @param client the client configuration
+	 * @throws NullPointerException if {@code client} is null
 	 */
-	public HttpClientFactory()
+	public HttpClientFactory(InternalClient client)
 	{
-		this.clientTimeout = Duration.ofSeconds(30);
+		this.connectTimeout = Duration.ofSeconds(5);
+		this.idleTimeout = switch (client.getRunMode())
+		{
+			case DEBUG -> Duration.ofMinutes(5);
+			case RELEASE -> Duration.ofSeconds(30);
+		};
 		this.clientExecutor = new QueuedThreadPool();
 		clientExecutor.setName(HttpClient.class.getSimpleName());
 	}
@@ -30,8 +39,8 @@ public final class HttpClientFactory extends ConcurrentLazyFactory<HttpClient>
 	{
 		HttpClient httpClient = new HttpClient();
 		httpClient.setExecutor(clientExecutor);
-		httpClient.setConnectTimeout(clientTimeout.toMillis());
-		httpClient.setIdleTimeout(clientTimeout.toMillis());
+		httpClient.setConnectTimeout(connectTimeout.toMillis());
+		httpClient.setIdleTimeout(idleTimeout.toMillis());
 
 		try
 		{

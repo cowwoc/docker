@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.cowwoc.docker.exception.ResourceNotFoundException;
 import com.github.cowwoc.docker.internal.client.InternalClient;
-import com.github.cowwoc.docker.resource.Container.LogStreams;
+import com.github.cowwoc.docker.resource.ContainerLogs.Streams;
 import com.github.cowwoc.pouch.core.WrappedCheckedException;
 import org.eclipse.jetty.client.Response;
 import org.eclipse.jetty.client.Result;
@@ -51,7 +51,7 @@ public final class LogListener extends AsyncResponseListener
 	 * @param streams the streams returned to the user
 	 * @throws NullPointerException if {@code client} or {@code streams} are null
 	 */
-	public LogListener(InternalClient client, OutputStream stdout, OutputStream stderr, LogStreams streams)
+	public LogListener(InternalClient client, OutputStream stdout, OutputStream stderr, Streams streams)
 	{
 		super(client, streams.getExceptions());
 		this.stdout = stdout;

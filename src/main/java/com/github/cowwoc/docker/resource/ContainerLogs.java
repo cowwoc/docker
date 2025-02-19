@@ -2,18 +2,26 @@ package com.github.cowwoc.docker.resource;
 
 import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.github.cowwoc.docker.internal.util.LogListener;
+import com.github.cowwoc.docker.internal.util.RequestAbortedException;
 import com.github.cowwoc.docker.internal.util.ToStringBuilder;
-import com.github.cowwoc.docker.resource.Container.LogStreams;
+import com.github.cowwoc.pouch.core.WrappedCheckedException;
 import org.eclipse.jetty.client.Request;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.net.URI;
 import java.time.Instant;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.requireThat;
 import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.that;
 import static org.eclipse.jetty.http.HttpMethod.GET;
 
@@ -144,10 +152,10 @@ public final class ContainerLogs
 	 * @throws InterruptedException if the thread is interrupted while waiting for a response. This can happen
 	 *                              due to shutdown signals.
 	 */
-	public LogStreams stream() throws IOException, TimeoutException, InterruptedException
+	public Streams stream() throws IOException, TimeoutException, InterruptedException
 	{
 		if (!stdout && !stderr)
-			return new LogStreams(null, null, null);
+			return new Streams(null, null, null);
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Container/operation/ContainerLogs
 		URI uri = client.getServer().resolve("containers/" + id + "/logs");
 		Request request = client.createRequest(uri);
@@ -177,7 +185,7 @@ public final class ContainerLogs
 		PipedInputStream stdoutForReading = new PipedInputStream(stdoutForWriting);
 		@SuppressWarnings("PMD.CloseResource")
 		PipedInputStream stderrForReading = new PipedInputStream(stderrForWriting);
-		LogStreams streams = new LogStreams(stdoutForReading, stderrForReading, request);
+		Streams streams = new Streams(stdoutForReading, stderrForReading, request);
 		LogListener logListener = new LogListener(client, stdoutForWriting, stderrForWriting, streams);
 		client.send(request, logListener);
 		if (!logListener.getRequestComplete().await(5, TimeUnit.MINUTES))
@@ -198,5 +206,104 @@ public final class ContainerLogs
 			add("timestamps", timestamps).
 			add("linesFromEnd", linesFromEnd).
 			toString();
+	}
+
+	/**
+	 * A container's log streams.
+	 */
+	public static final class Streams implements AutoCloseable
+	{
+		private final InputStream stdout;
+		private final InputStream stderr;
+		private final Request request;
+		private final BlockingQueue<Throwable> exceptions = new LinkedBlockingQueue<>();
+		private final AtomicBoolean closed = new AtomicBoolean();
+
+		/**
+		 * Creates a new instance.
+		 *
+		 * @param stdout  the container's standard output stream, or {@code null} if not captured
+		 * @param stderr  the container's standard error stream, or {@code null} if not captured (or included as
+		 *                part of {@code stdout})
+		 * @param request the client request, or {@code null} if none of the streams were captured
+		 */
+		private Streams(InputStream stdout, InputStream stderr, Request request)
+		{
+			this.stdout = stdout;
+			this.stderr = stderr;
+
+			requireThat(request, "request").isNotNull();
+			this.request = request;
+		}
+
+		/**
+		 * Returns the container's standard output stream.
+		 *
+		 * @return {@code null} if the stream was not captured
+		 */
+		public InputStream getStdout()
+		{
+			return stdout;
+		}
+
+		/**
+		 * Returns the container's standard error stream.
+		 *
+		 * @return {@code null} if the stream was not captured
+		 */
+		public InputStream getStderr()
+		{
+			return stderr;
+		}
+
+		/**
+		 * Returns the errors encountered during the operation. Errors are added asynchronously as they occur. No
+		 * new errors will be added after {@link #stopCapturing()} is invoked.
+		 *
+		 * @return the errors
+		 * @see #stopCapturing()
+		 */
+		public BlockingQueue<Throwable> getExceptions()
+		{
+			return exceptions;
+		}
+
+		/**
+		 * Stops capturing the streams.
+		 *
+		 * @throws InterruptedException if the thread is interrupted before the request is aborted
+		 */
+		public void stopCapturing() throws InterruptedException
+		{
+			if (request != null)
+			{
+				CountDownLatch onComplete = new CountDownLatch(1);
+				try
+				{
+					if (request.abort(new RequestAbortedException(onComplete)).get())
+						onComplete.await();
+				}
+				catch (ExecutionException e)
+				{
+					throw WrappedCheckedException.wrap(e);
+				}
+			}
+		}
+
+		/**
+		 * Stops capturing the streams.
+		 *
+		 * @throws IOException if any of the streams throw an {@code IOException} while closing
+		 */
+		@Override
+		@SuppressWarnings("EmptyTryBlock")
+		public void close() throws IOException
+		{
+			if (!closed.compareAndSet(false, true))
+				return;
+			try (stdout; stderr)
+			{
+			}
+		}
 	}
 }

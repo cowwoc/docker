@@ -150,8 +150,9 @@ public final class ImageBuilder
 		// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/Image/operation/ImageBuild
 		URI uri = client.getServer().resolve("build");
 		Request request = client.createRequest(uri).
-			param("platform", String.join(",", platforms));
-//			param("version", "2");
+			param("platform", String.join(",", platforms)).
+			// Use BuildKit
+				param("version", "2");
 		// Path.relativize() requires both Paths to be relative or absolute
 		Path absoluteBuildContext = buildContext.toAbsolutePath().normalize();
 		Path dockerfileAsPath = absoluteBuildContext.relativize(this.dockerfile.toAbsolutePath().normalize());

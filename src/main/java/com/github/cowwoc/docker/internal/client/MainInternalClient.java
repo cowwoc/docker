@@ -5,8 +5,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.github.cowwoc.docker.client.RunMode;
 import com.github.cowwoc.docker.internal.util.Exceptions;
-import com.github.cowwoc.docker.internal.util.RunMode;
 import com.github.cowwoc.pouch.core.WrappedCheckedException;
 import com.github.cowwoc.requirements10.jackson.DefaultJacksonValidators;
 import org.eclipse.jetty.client.BytesRequestContent;
@@ -42,7 +42,6 @@ import static org.eclipse.jetty.http.HttpStatus.OK_200;
  */
 public final class MainInternalClient implements InternalClient
 {
-	private static final RunMode RUN_MODE = RunMode.RELEASE;
 	/**
 	 * Content-types that are known to be textual.
 	 */
@@ -65,6 +64,7 @@ public final class MainInternalClient implements InternalClient
 		"application/ld+json");
 	private final URI server;
 	private final Transport transport;
+	private final RunMode mode;
 	private final HttpClientFactory httpClient;
 	private final JsonMapper jsonMapper = JsonMapper.builder().
 		addModule(new JavaTimeModule()).
@@ -83,13 +83,20 @@ public final class MainInternalClient implements InternalClient
 	 *                  {@code Transport.TCP_IP}. For Unix sockets use {@code new Transport.TCPUnix(path)}.
 	 * @throws NullPointerException if any of the arguments are null
 	 */
-	public MainInternalClient(URI server, Transport transport)
+	public MainInternalClient(URI server, Transport transport, RunMode mode)
 	{
 		requireThat(server, "server").isNotNull();
 		requireThat(transport, "transport").isNotNull();
 		this.server = server;
 		this.transport = transport;
-		this.httpClient = new HttpClientFactory();
+		this.mode = mode;
+		this.httpClient = new HttpClientFactory(this);
+	}
+
+	@Override
+	public RunMode getRunMode()
+	{
+		return mode;
 	}
 
 	@Override
@@ -131,7 +138,7 @@ public final class MainInternalClient implements InternalClient
 	@Override
 	public ContentResponse send(Request request) throws IOException, TimeoutException, InterruptedException
 	{
-		if (RUN_MODE == RunMode.DEBUG)
+		if (mode == RunMode.DEBUG)
 			convertToRewindableContent(request);
 		try
 		{
@@ -152,7 +159,7 @@ public final class MainInternalClient implements InternalClient
 	@Override
 	public void send(Request request, Response.Listener listener) throws IOException
 	{
-		if (RUN_MODE == RunMode.DEBUG)
+		if (mode == RunMode.DEBUG)
 			convertToRewindableContent(request);
 		request.send(listener);
 	}

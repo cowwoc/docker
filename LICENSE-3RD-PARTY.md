@@ -25,6 +25,8 @@
     * [Core :: Utilities](https://jetty.org/jetty-core/jetty-util)
   * BSD 3-clause:
     * [ThreeTen-Extra](https://www.threeten.org/threeten-extra)
+  * BSD-3-Clause:
+    * [Protocol Buffers [Core]](https://developers.google.com/protocol-buffers/protobuf-java/)
   * Eclipse Public License - Version 2.0:
     * [Core :: ALPN :: Client](https://jetty.org/jetty-core/jetty-alpn/jetty-alpn-client)
     * [Core :: HTTP Client](https://jetty.org/jetty-core/jetty-client)
