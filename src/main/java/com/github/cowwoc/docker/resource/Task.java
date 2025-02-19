@@ -7,7 +7,7 @@ import com.github.cowwoc.docker.internal.util.ToStringBuilder;
 import static com.github.cowwoc.requirements10.java.DefaultJavaValidators.requireThat;
 
 /**
- * A unit of work that executes on a node.
+ * A unit of work that executes on a Swarm node.
  */
 public final class Task
 {

@@ -28,7 +28,7 @@ import static org.eclipse.jetty.http.HttpStatus.OK_200;
 import static org.eclipse.jetty.http.HttpStatus.SERVICE_UNAVAILABLE_503;
 
 /**
- * Non-sensitive configuration that is stored in the swarm.
+ * Non-sensitive configuration that is stored in a Swarm.
  */
 public final class Config
 {
