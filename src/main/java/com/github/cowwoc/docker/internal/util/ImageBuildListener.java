@@ -94,7 +94,7 @@ public final class ImageBuildListener extends JsonStreamListener
 		for (VertexStatus vertex : status.getStatusesList())
 			logMessage(vertex.getID(), Level.DEBUG);
 		for (VertexLog vertex : status.getLogsList())
-			logMessage("\t" + vertex.getMsg().toStringUtf8(), Level.DEBUG);
+			logMessage(vertex.getMsg().toStringUtf8(), Level.DEBUG);
 	}
 
 	@Override
