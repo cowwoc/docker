@@ -256,7 +256,7 @@ public abstract class GlobParser
 						operation = "Excluding";
 					else
 						operation = "Including";
-					log.debug("{} {} because {}, regex: {}", operation, candidateAsString, regex, why);
+					log.debug("{} {} because {}, regex: {}", operation, candidateAsString, why, regex);
 				}
 				return matches;
 			};

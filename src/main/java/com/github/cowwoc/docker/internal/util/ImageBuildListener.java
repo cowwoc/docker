@@ -5,6 +5,7 @@ import com.github.cowwoc.docker.internal.client.InternalClient;
 import com.google.protobuf.InvalidProtocolBufferException;
 import moby.buildkit.v1.ControlOuterClass.StatusResponse;
 import moby.buildkit.v1.ControlOuterClass.Vertex;
+import moby.buildkit.v1.ControlOuterClass.VertexLog;
 import moby.buildkit.v1.ControlOuterClass.VertexStatus;
 import org.eclipse.jetty.client.Response;
 import org.eclipse.jetty.client.Result;
@@ -81,7 +82,6 @@ public final class ImageBuildListener extends JsonStreamListener
 
 	private void processStatus(StatusResponse status)
 	{
-		assert that(status.getLogsCount(), "status.getLogsCount()").isEqualTo(0).elseThrow();
 		assert that(status.getWarningsCount(), "status.getWarningsCount()").isEqualTo(0).elseThrow();
 
 		for (Vertex vertex : status.getVertexesList())
@@ -93,6 +93,8 @@ public final class ImageBuildListener extends JsonStreamListener
 		}
 		for (VertexStatus vertex : status.getStatusesList())
 			logMessage(vertex.getID(), Level.DEBUG);
+		for (VertexLog vertex : status.getLogsList())
+			logMessage("\t" + vertex.getMsg().toStringUtf8(), Level.DEBUG);
 	}
 
 	@Override
