@@ -3,8 +3,6 @@ package com.github.cowwoc.docker.internal.util;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 
 /**
@@ -32,28 +30,17 @@ public final class Strings
 	}
 
 	/**
-	 * Splits a String into multiple lines, omitting any empty lines.
+	 * If {@code input} ends with a newline character, remove it; otherwise, return {@code input} unchanged.
 	 *
-	 * @param lines zero or more lines of text
-	 * @return a collection of lines
-	 * @throws NullPointerException if {@code text} is null
+	 * @param input a string
+	 * @return the updated string
+	 * @throws NullPointerException if {@code input} is null
 	 */
-	public static List<String> split(String lines)
+	public static String removeNewlineFromEnd(String input)
 	{
-		List<String> result = new ArrayList<>();
-		while (true)
-		{
-			int index = lines.indexOf('\n');
-			if (index == -1)
-				break;
-			String line = lines.substring(0, index);
-			if (!line.isBlank())
-				result.add(line);
-			lines = lines.substring(index + 1);
-		}
-		if (!lines.isBlank())
-			result.add(lines);
-		return result;
+		if (input.endsWith("\n"))
+			return input.substring(0, input.length() - 1);
+		return input;
 	}
 
 	private Strings()

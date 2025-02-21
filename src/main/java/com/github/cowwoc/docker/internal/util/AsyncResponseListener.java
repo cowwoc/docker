@@ -70,8 +70,7 @@ public abstract class AsyncResponseListener implements Response.Listener
 			{
 				String message = node.textValue();
 				warnOnUnexpectedProperties(json, "message");
-				for (String line : Strings.split(message))
-					log.info(line);
+				log.info(Strings.removeNewlineFromEnd(message));
 				return;
 			}
 			node = json.get("errorDetail");

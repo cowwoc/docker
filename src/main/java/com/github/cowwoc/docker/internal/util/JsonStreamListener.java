@@ -154,13 +154,14 @@ public abstract class JsonStreamListener extends AsyncResponseListener
 	protected void logMessage(String message, Level level)
 	{
 		Instant now = Instant.now();
+		
+		message = Strings.removeNewlineFromEnd(message);
 		Instant lastTime = messageToTime.get(message);
 		if (lastTime == null || Duration.between(lastTime, now).compareTo(PROGRESS_FREQUENCY) >= 0)
 		{
 			// Only log the status if it's changed or PROGRESS_FREQUENCY has elapsed
 			messageToTime.put(message, now);
-			for (String line : Strings.split(message))
-				log.atLevel(level).log(line);
+			log.atLevel(level).log(message);
 		}
 	}
 }
