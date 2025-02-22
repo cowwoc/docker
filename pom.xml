@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.github.cowwoc.docker</groupId>
 	<artifactId>docker</artifactId>
@@ -329,7 +330,9 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-pmd-plugin</artifactId>
 				<configuration>
-					<excludeRoots>${project.build.directory}/generated-sources</excludeRoots>
+					<excludeRoots>
+						<excludeRoot>${project.build.directory}/generated-sources</excludeRoot>
+					</excludeRoots>
 					<printFailingErrors>true</printFailingErrors>
 					<rulesets>
 						<ruleset>build/src/main/resources/pmd.xml</ruleset>
@@ -337,9 +340,6 @@
 					<analysisCache>true</analysisCache>
 					<linkXRef>false</linkXRef>
 					<targetJdk>${maven.compiler.release}</targetJdk>
-					<excludeRoots>
-						<excludeRoot>target/generated-sources</excludeRoot>
-					</excludeRoots>
 				</configuration>
 				<executions>
 					<execution>
@@ -713,15 +713,19 @@
 								Rename the package of generated classes to avoid a conflict with the
 								com.google.protobuf:protobuf-java dependency.
 								-->
-								<replaceregexp match="option java_package = &quot;com.google.protobuf&quot;;" replace="option java_package = &quot;com.google.protobuf.generated&quot;;" flags="g">
+								<replaceregexp match="option java_package = &quot;com.google.protobuf&quot;;"
+								               replace="option java_package = &quot;com.google.protobuf.generated&quot;;"
+								               flags="g">
 									<fileset dir="${project.build.directory}/buildkit">
-										<include name="**/*.proto" />
+										<include name="**/*.proto"/>
 									</fileset>
 								</replaceregexp>
 								<!-- Remove unused import to avoid compile-time warning -->
-								<replaceregexp match="import &quot;github.com/planetscale/vtprotobuf/vtproto/ext.proto&quot;;\n" replace="" flags="g">
+								<replaceregexp
+									match="import &quot;github.com/planetscale/vtprotobuf/vtproto/ext.proto&quot;;\n" replace=""
+									flags="g">
 									<fileset dir="${project.build.directory}/buildkit/github.com/tonistiigi/fsutil/types">
-										<include name="stat.proto" />
+										<include name="stat.proto"/>
 									</fileset>
 								</replaceregexp>
 							</target>
