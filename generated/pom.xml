@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>com.github.cowwoc.docker</groupId>
+		<artifactId>docker</artifactId>
+		<version>0.10-SNAPSHOT</version>
+	</parent>
+	<artifactId>docker-generated</artifactId>
+
+	<properties>
+		<project.root.basedir>${project.parent.basedir}</project.root.basedir>
+		<proto.relative.directory>buildkit-protobuf</proto.relative.directory>
+		<proto.directory>${project.build.directory}/${proto.relative.directory}/include/</proto.directory>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>com.google.protobuf</groupId>
+			<artifactId>protobuf-java</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.grpc</groupId>
+			<artifactId>grpc-protobuf</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.grpc</groupId>
+			<artifactId>grpc-services</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.grpc</groupId>
+			<artifactId>grpc-stub</artifactId>
+		</dependency>
+		<dependency>
+			<!-- Used by the generated grpc code -->
+			<groupId>com.google.api.grpc</groupId>
+			<artifactId>proto-google-common-protos</artifactId>
+		</dependency>
+		<dependency>
+			<!-- Used by generated grpc code -->
+			<groupId>com.google.guava</groupId>
+			<artifactId>guava</artifactId>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-resources-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>filter-download-proto-files-sh</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${project.build.directory}</outputDirectory>
+							<resources>
+								<resource>
+									<directory>src/main/resources</directory>
+									<filtering>true</filtering>
+								</resource>
+							</resources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>download-proto-files</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>exec</goal>
+						</goals>
+						<configuration>
+							<executable>bash</executable>
+							<workingDirectory>${project.build.directory}</workingDirectory>
+							<arguments>
+								<argument>download-proto-files.sh</argument>
+							</arguments>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-antrun-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>rename-protobuf-package</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+						<configuration>
+							<target>
+								<!--
+								Rename the package of generated classes to avoid a conflict with the
+								com.google.protobuf:protobuf-java dependency.
+								-->
+								<replaceregexp match="option java_package = &quot;com.google.protobuf&quot;;"
+								               replace="option java_package = &quot;com.google.protobuf.generated&quot;;">
+									<fileset dir="${proto.directory}">
+										<include name="**/*.proto"/>
+									</fileset>
+								</replaceregexp>
+							</target>
+						</configuration>
+					</execution>
+					<execution>
+						<id>rename-buildkit-package1</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+						<configuration>
+							<target>
+								<!--
+								Prefix the package name of buildkit classes.
+								-->
+								<replaceregexp match="^package ((?!moby\.)[^;]*);(?!\s*${line.separator}option java_package)"
+								               replace="package \1;${line.separator}option java_package = &quot;com.github.moby.buildkit.\1&quot;;"
+								               flags="m">
+									<fileset dir="${proto.directory}/github.com/moby/buildkit">
+										<include name="**/*.proto"/>
+									</fileset>
+								</replaceregexp>
+							</target>
+						</configuration>
+					</execution>
+					<execution>
+						<id>rename-buildkit-package2</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+						<configuration>
+							<target>
+								<!--
+								Prefix the package name of buildkit classes.
+								-->
+								<replaceregexp match="^package (moby\.[^;]*);(?!\s*${line.separator}option java_package)"
+								               replace="package \1;${line.separator}option java_package = &quot;com.github.\1&quot;;"
+								               flags="m">
+									<fileset dir="${proto.directory}/github.com/moby/buildkit">
+										<include name="**/*.proto"/>
+									</fileset>
+								</replaceregexp>
+							</target>
+						</configuration>
+					</execution>
+					<execution>
+						<id>rename-vtproto-package</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+						<configuration>
+							<target>
+								<!--
+								Prefix the package name of planetscale classes.
+								-->
+								<replaceregexp match="^package (vtproto\.[^;]*);(?!\s*${line.separator}option java_package)"
+								               replace="package \1;${line.separator}option java_package = &quot;com.github.planetscale.\1&quot;;"
+								               flags="m">
+									<fileset dir="${proto.directory}/github.com/planetscale">
+										<include name="**/*.proto"/>
+									</fileset>
+								</replaceregexp>
+							</target>
+						</configuration>
+					</execution>
+					<execution>
+						<id>rename-tonistiigi-package</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+						<configuration>
+							<target>
+								<!--
+								Prefix the package name of tonistiigi classes.
+								-->
+								<replaceregexp match="^package (fsutil\.[^;]*);(?!\s*${line.separator}option java_package)"
+								               replace="package \1;${line.separator}option java_package = &quot;com.github.tonistiigi.\1&quot;;"
+								               flags="m">
+									<fileset dir="${proto.directory}/github.com/tonistiigi">
+										<include name="**/*.proto"/>
+									</fileset>
+								</replaceregexp>
+							</target>
+						</configuration>
+					</execution>
+					<execution>
+						<!-- WORKAROUND: https://github.com/protocolbuffers/protobuf/issues/21453 -->
+						<id>remove-unused-imports-planetscale</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+						<configuration>
+							<target>
+								<!-- Remove unused imports to avoid compile-time warnings -->
+								<replaceregexp
+									match="import &quot;github.com/planetscale/vtprotobuf/vtproto/ext.proto&quot;;\n"
+									replace="">
+									<fileset
+										dir="${proto.directory}github.com/tonistiigi/fsutil/types">
+										<include name="stat.proto"/>
+									</fileset>
+								</replaceregexp>
+							</target>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>io.github.ascopes</groupId>
+				<artifactId>protobuf-maven-plugin</artifactId>
+				<executions>
+					<execution>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<sourceDirectories>
+								<sourceDirectory>${proto.directory}</sourceDirectory>
+							</sourceDirectories>
+							<includes>
+								<!-- Skip the unnecessary proto files that the Buildkit docker image exports -->
+								<include>github.com/moby/buildkit/**</include>
+								<include>github.com/tonistiigi/fsutil/types/stat.proto</include>
+								<include>github.com/tonistiigi/fsutil/types/wire.proto</include>
+								<include>github.com/planetscale/vtprotobuf/vtproto/ext.proto</include>
+								<include>google/protobuf/descriptor.proto</include>
+								<include>google/protobuf/timestamp.proto</include>
+							</includes>
+
+							<protocVersion>${protobuf.version}</protocVersion>
+
+							<!-- Generate gRPC clients (stub files) -->
+							<binaryMavenPlugins>
+								<binaryMavenPlugin>
+									<groupId>io.grpc</groupId>
+									<artifactId>protoc-gen-grpc-java</artifactId>
+									<version>${grpc.version}</version>
+									<options>require_unimplemented_servers=false,@generated=omit</options>
+								</binaryMavenPlugin>
+							</binaryMavenPlugins>
+							<failOnInvalidDependencies>true</failOnInvalidDependencies>
+							<fatalWarnings>true</fatalWarnings>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+</project>

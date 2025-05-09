@@ -13,7 +13,7 @@ To get started, add this Maven dependency:
 ```xml
 <dependency>
   <groupId>com.github.cowwoc.docker</groupId>
-  <artifactId>docker</artifactId>
+  <artifactId>docker-core</artifactId>
   <version>0.9</version>
 </dependency>
 ```
@@ -31,21 +31,21 @@ import java.util.concurrent.TimeoutException;
 
 class Example
 {
-  public static void main(String[] args)
-    throws IOException, TimeoutException, InterruptedException
-  {
-    try (DockerClient client = DockerClient.usingUnixSocket(Path.of("/var/run/docker.sock")))
-    {
-      Image image = Image.builder(client).platform("linux/amd64").build();
-      Image image2 = Image.getById(client, image.getId());
-      assert (image.equals(image2));
+	public static void main(String[] args)
+		throws IOException, TimeoutException, InterruptedException
+	{
+		try (DockerClient client = DockerClient.connect(Path.of("/var/run/docker.sock")))
+		{
+			Image image = Image.builder(client).platform("linux/amd64").build();
+			Image image2 = Image.getById(client, image.getId());
+			assert (image.equals(image2));
 
-      image.tag("rocket-ship", "local-tag");
-      image.pusher(client, "rocket-ship", "remote-tag").
-        credentials("username", "Pa33word").
-        push();
-    }
-  }
+			image.tag("rocket-ship", "local-tag");
+			image.pusher(client, "rocket-ship", "remote-tag").
+				credentials("username", "Pa33word").
+				push();
+		}
+	}
 }
 ```
 

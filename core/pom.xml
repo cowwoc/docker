@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>com.github.cowwoc.docker</groupId>
+		<artifactId>docker</artifactId>
+		<version>0.10-SNAPSHOT</version>
+	</parent>
+	<artifactId>docker-core</artifactId>
+
+	<properties>
+		<project.root.basedir>${project.parent.basedir}</project.root.basedir>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>${project.groupId}</groupId>
+			<artifactId>docker-generated</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>ch.qos.logback</groupId>
+			<artifactId>logback-classic</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.eclipse.jetty</groupId>
+			<artifactId>jetty-client</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.github.cowwoc.requirements</groupId>
+			<artifactId>requirements-java</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.github.cowwoc.requirements</groupId>
+			<artifactId>requirements-jackson</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.fasterxml.jackson.datatype</groupId>
+			<artifactId>jackson-datatype-jsr310</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.sshd</groupId>
+			<artifactId>sshd-osgi</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.threeten</groupId>
+			<artifactId>threeten-extra</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-compress</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.grpc</groupId>
+			<artifactId>grpc-netty</artifactId>
+		</dependency>
+		<dependency>
+			<!-- WORKAROUND: https://github.com/grpc/grpc-java/issues/11965 -->
+			<groupId>io.netty</groupId>
+			<artifactId>netty-codec-http2</artifactId>
+		</dependency>
+		<dependency>
+			<!-- WORKAROUND: https://github.com/grpc/grpc-java/issues/11965 -->
+			<groupId>io.netty</groupId>
+			<artifactId>netty-handler-proxy</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.testng</groupId>
+			<artifactId>testng</artifactId>
+			<version>7.11.0</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-checkstyle-plugin</artifactId>
+				<version>${checkstyle.plugin.version}</version>
+				<dependencies>
+					<dependency>
+						<groupId>com.puppycrawl.tools</groupId>
+						<artifactId>checkstyle</artifactId>
+						<version>10.23.0</version>
+					</dependency>
+				</dependencies>
+				<configuration>
+					<configLocation>${project.root.basedir}/lint/checkstyle.xml</configLocation>
+					<consoleOutput>true</consoleOutput>
+					<failOnViolation>true</failOnViolation>
+					<linkXRef>false</linkXRef>
+					<includeTestSourceDirectory>true</includeTestSourceDirectory>
+					<excludeGeneratedSources>true</excludeGeneratedSources>
+				</configuration>
+				<executions>
+					<execution>
+						<phase>verify</phase>
+						<goals>
+							<goal>check</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<!--			<plugin>-->
+			<!--				<groupId>org.apache.maven.plugins</groupId>-->
+			<!--				<artifactId>maven-pmd-plugin</artifactId>-->
+			<!--				<configuration>-->
+			<!--					<excludeRoots>-->
+			<!--						<excludeRoot>${project.build.directory}/generated-sources</excludeRoot>-->
+			<!--					</excludeRoots>-->
+			<!--					<printFailingErrors>true</printFailingErrors>-->
+			<!--					<rulesets>-->
+			<!--						<ruleset>${project.root.basedir}/lint/pmd.xml</ruleset>-->
+			<!--					</rulesets>-->
+			<!--					<analysisCache>true</analysisCache>-->
+			<!--					<linkXRef>false</linkXRef>-->
+			<!--					<targetJdk>${maven.compiler.release}</targetJdk>-->
+			<!--					<benchmark>true</benchmark>-->
+			<!--				</configuration>-->
+			<!--				<executions>-->
+			<!--					<execution>-->
+			<!--						<goals>-->
+			<!--							<goal>check</goal>-->
+			<!--						</goals>-->
+			<!--					</execution>-->
+			<!--				</executions>-->
+			<!--			</plugin>-->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+
+	<profiles>
+		<profile>
+			<id>release</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-javadoc-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>attach-javadocs</id>
+								<goals>
+									<goal>jar</goal>
+								</goals>
+								<configuration>
+									<excludePackageNames>
+										<!-- packages that are exported to tests but shouldn't be visible to end-users -->
+										com.github.cowwoc.docker.internal.*:
+									</excludePackageNames>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<profile>
+			<id>linux-x86_64</id>
+			<activation>
+				<os>
+					<!-- Per https://stackoverflow.com/a/19031165/14731 the family name of linux is "unix" -->
+					<family>unix</family>
+					<arch>amd64</arch>
+				</os>
+			</activation>
+			<dependencies>
+				<dependency>
+					<groupId>io.netty</groupId>
+					<artifactId>netty-transport-native-epoll</artifactId>
+					<version>${netty.version}</version>
+					<classifier>linux-x86_64</classifier>
+				</dependency>
+			</dependencies>
+		</profile>
+		<profile>
+			<id>mac-x86_64</id>
+			<activation>
+				<os>
+					<family>mac</family>
+					<arch>x86_64</arch>
+				</os>
+			</activation>
+			<dependencies>
+				<dependency>
+					<groupId>io.netty</groupId>
+					<artifactId>netty-transport-native-kqueue</artifactId>
+					<version>${netty.version}</version>
+					<classifier>osx-x86_64</classifier>
+				</dependency>
+			</dependencies>
+		</profile>
+	</profiles>
+</project>
