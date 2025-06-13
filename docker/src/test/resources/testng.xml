@@ -1,0 +1,9 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd" >
+<suite name="TestSuite">
+	<test name="Tests">
+		<packages>
+			<package name="com.github.cowwoc.anchor4j.docker.test"/>
+			<package name="com.github.cowwoc.anchor4j.docker.test.resource"/>
+		</packages>
+	</test>
+</suite>

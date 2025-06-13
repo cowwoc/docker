@@ -3,10 +3,14 @@ Minor updates involving cosmetic changes have been omitted from this list.
 See https://github.com/cowwoc/docker/commits/main for a full list.
 
 ## Version 0.10 - ?
-* Added support for "status logs" returned by image build operation.
 
+* Renamed product to `anchor4j`.
+* Dual-licensed source-code under ModernJDK 1.0 and a commercial license.
+* Architectural change: integrate command-line interface instead of using the poorly documented REST and gRPC
+  APIs.
+  
 ## Version 0.9 - 2025/02/19
-* Replaced support for the legacy builder with BuildKit.
+
 * DockerfileParser: Added support for COPY/ADD --options.
 
 ## Version 0.8 - 2025/02/19

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration debug="false">
+	<!-- Disabled to speed up the build -->
+	<!--	<root level="debug">-->
+	<!--		<appender-ref ref="console"/>-->
+	<!--		<appender-ref ref="file"/>-->
+	<!--	</root>-->
+
+	<!--	<logger name="com.github.cowwoc.anchor4j.core.resource.ImageBuilder.stdout" additivity="false">-->
+	<!--		<appender-ref ref="stdout"/>-->
+	<!--	</logger>-->
+	<!--	<logger name="com.github.cowwoc.anchor4j.core.resource.ImageBuilder.stderr" additivity="false">-->
+	<!--		<appender-ref ref="stderr"/>-->
+	<!--	</logger>-->
+	<!--	<logger name="com.github.cowwoc.anchor4j.core.internal.client.AbstractInternalClient.stdout" -->
+	<!--	        additivity="false">-->
+	<!--		<appender-ref ref="stdout"/>-->
+	<!--	</logger>-->
+	<!--	<logger name="com.github.cowwoc.anchor4j.core.internal.client.AbstractInternalClient.stderr" -->
+	<!--	        additivity="false">-->
+	<!--		<appender-ref ref="stderr"/>-->
+	<!--	</logger>-->
+
+	<!--	<appender name="console" class="ch.qos.logback.core.ConsoleAppender">-->
+	<!--		<encoder>-->
+	<!--			<pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %class{36}.%method\(\) - %msg%n</pattern>-->
+	<!--		</encoder>-->
+	<!--	</appender>-->
+	<!--	<appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">-->
+	<!--		<encoder>-->
+	<!--			<pattern>%d{HH:mm:ss.SSS} [%thread] %-5level stdout: %msg%n</pattern>-->
+	<!--		</encoder>-->
+	<!--	</appender>-->
+	<!--	<appender name="stderr" class="ch.qos.logback.core.ConsoleAppender">-->
+	<!--		<encoder>-->
+	<!--			<pattern>%d{HH:mm:ss.SSS} [%thread] %-5level stderr: %msg%n</pattern>-->
+	<!--		</encoder>-->
+	<!--	</appender>-->
+	<!--	<appender name="file" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+	<!--		<file>logs/anchor4j.log</file>-->
+	<!--		<encoder>-->
+	<!--			<pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %class{36}.%method\(\) - %msg%n</pattern>-->
+	<!--		</encoder>-->
+	<!--		<rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+	<!--			<fileNamePattern>logs/anchor4j.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+	<!--			<maxHistory>30</maxHistory>-->
+	<!--			<maxFileSize>100MB</maxFileSize>-->
+	<!--		</rollingPolicy>-->
+	<!--	</appender>-->
+</configuration>

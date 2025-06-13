@@ -2,26 +2,30 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>com.github.cowwoc.docker</groupId>
-	<artifactId>docker</artifactId>
+	<groupId>com.github.cowwoc.anchor4j</groupId>
+	<artifactId>anchor4j</artifactId>
 	<version>0.10-SNAPSHOT</version>
-	<packaging>jar</packaging>
-	<name>Docker</name>
-	<description>A Java client for Docker.</description>
-	<url>https://github.com/cowwoc/docker/</url>
+	<packaging>pom</packaging>
+	<name>anchor4j</name>
+	<description>A Java client for virtualization containers.</description>
+	<url>https://github.com/cowwoc/anchor4j/</url>
 
 	<licenses>
 		<license>
-			<name>The Apache Software License, Version 2.0</name>
-			<url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+			<name>ModernJDK License v1.0</name>
+			<url>https://github.com/cowwoc/anchor4j/blob/main/docs/modern-jdk-license-1.0.md</url>
 			<distribution>repo</distribution>
+			<comments>Use restricted to latest GA JDK. See commercial license for broader use.</comments>
 		</license>
 	</licenses>
+	<organization>
+		<name>9187219 Canada Inc.</name>
+	</organization>
 
 	<scm>
-		<url>https://github.com/cowwoc/docker/</url>
-		<connection>scm:git:https://github.com/cowwoc/docker/</connection>
-		<developerConnection>scm:git:https://github.com/cowwoc/docker/</developerConnection>
+		<url>https://github.com/cowwoc/anchor4j/</url>
+		<connection>scm:git:https://github.com/cowwoc/anchor4j/</connection>
+		<developerConnection>scm:git:https://github.com/cowwoc/anchor4j/</developerConnection>
 		<tag>HEAD</tag>
 	</scm>
 
@@ -45,131 +49,131 @@
 	</distributionManagement>
 
 	<properties>
-		<maven.version>3.9.9</maven.version>
-		<maven.compiler.release>23</maven.compiler.release>
+		<maven.version>3.9.10</maven.version>
+		<maven.compiler.release>24</maven.compiler.release>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<jetty.version>12.0.16</jetty.version>
-		<jackson.version>2.18.3</jackson.version>
-		<pmd.version>7.11.0</pmd.version>
-		<maven.checkstyle.version>3.6.0</maven.checkstyle.version>
-		<checkstyle.failOnViolation>true</checkstyle.failOnViolation>
-		<requirements.version>11.0</requirements.version>
-		<protobuf.version>4.29.3</protobuf.version>
-		<buildkit.version>v0.20</buildkit.version>
+		<jackson.version>2.19.0</jackson.version>
+		<pmd.version>7.14.0</pmd.version>
+		<checkstyle.plugin.version>3.6.0</checkstyle.plugin.version>
+		<requirements.version>11.2</requirements.version>
+		<project.root.basedir>${project.basedir}</project.root.basedir>
 	</properties>
 
-	<dependencies>
-		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-api</artifactId>
-			<version>2.0.17</version>
-		</dependency>
-		<dependency>
-			<groupId>ch.qos.logback</groupId>
-			<artifactId>logback-classic</artifactId>
-			<version>1.5.17</version>
-		</dependency>
-		<dependency>
-			<groupId>org.eclipse.jetty</groupId>
-			<artifactId>jetty-client</artifactId>
-			<version>${jetty.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>com.github.cowwoc.requirements</groupId>
-			<artifactId>requirements-java</artifactId>
-			<version>${requirements.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>com.github.cowwoc.requirements</groupId>
-			<artifactId>requirements-jackson</artifactId>
-			<version>${requirements.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>com.fasterxml.jackson.core</groupId>
-			<artifactId>jackson-databind</artifactId>
-			<version>${jackson.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>com.fasterxml.jackson.datatype</groupId>
-			<artifactId>jackson-datatype-jsr310</artifactId>
-			<version>${jackson.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.sshd</groupId>
-			<artifactId>sshd-osgi</artifactId>
-			<version>2.15.0</version>
-		</dependency>
-		<dependency>
-			<groupId>org.threeten</groupId>
-			<artifactId>threeten-extra</artifactId>
-			<version>1.8.0</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.commons</groupId>
-			<artifactId>commons-compress</artifactId>
-			<version>1.27.1</version>
-		</dependency>
-		<dependency>
-			<groupId>com.google.protobuf</groupId>
-			<artifactId>protobuf-java</artifactId>
-			<version>${protobuf.version}</version>
-		</dependency>
-
-		<dependency>
-			<groupId>org.testng</groupId>
-			<artifactId>testng</artifactId>
-			<version>7.11.0</version>
-			<scope>test</scope>
-		</dependency>
-	</dependencies>
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>${project.groupId}</groupId>
+				<artifactId>anchor4j-core</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>${project.groupId}</groupId>
+				<artifactId>anchor4j-buildx</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>${project.groupId}</groupId>
+				<artifactId>anchor4j-docker</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.slf4j</groupId>
+				<artifactId>slf4j-api</artifactId>
+				<version>2.0.17</version>
+			</dependency>
+			<dependency>
+				<groupId>ch.qos.logback</groupId>
+				<artifactId>logback-classic</artifactId>
+				<version>1.5.18</version>
+			</dependency>
+			<dependency>
+				<groupId>com.github.cowwoc.requirements</groupId>
+				<artifactId>requirements-java</artifactId>
+				<version>${requirements.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.github.cowwoc.requirements</groupId>
+				<artifactId>requirements-jackson</artifactId>
+				<version>${requirements.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.fasterxml.jackson.core</groupId>
+				<artifactId>jackson-databind</artifactId>
+				<version>${jackson.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.testng</groupId>
+				<artifactId>testng</artifactId>
+				<version>7.11.0</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.commons</groupId>
+				<artifactId>commons-compress</artifactId>
+				<version>1.27.1</version>
+			</dependency>
+			<dependency>
+				<groupId>org.bouncycastle</groupId>
+				<artifactId>bcprov-jdk18on</artifactId>
+				<version>1.81</version>
+			</dependency>
+			<dependency>
+				<groupId>org.bouncycastle</groupId>
+				<artifactId>bcpkix-jdk18on</artifactId>
+				<version>1.81</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 
 	<build>
 		<pluginManagement>
 			<plugins>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-release-plugin</artifactId>
-					<version>3.1.1</version>
+					<artifactId>maven-enforcer-plugin</artifactId>
+					<version>3.5.0</version>
+					<executions>
+						<execution>
+							<id>enforce-maven</id>
+							<goals>
+								<goal>enforce</goal>
+							</goals>
+							<configuration>
+								<rules>
+									<requireMavenVersion>
+										<version>${maven.version}</version>
+									</requireMavenVersion>
+								</rules>
+							</configuration>
+						</execution>
+					</executions>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-clean-plugin</artifactId>
-					<version>3.4.1</version>
-				</plugin>
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-compiler-plugin</artifactId>
-					<version>3.14.0</version>
-				</plugin>
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-source-plugin</artifactId>
-					<version>3.3.1</version>
-				</plugin>
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-install-plugin</artifactId>
-					<version>3.1.4</version>
-				</plugin>
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-site-plugin</artifactId>
-					<version>4.0.0-M16</version>
-				</plugin>
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-jar-plugin</artifactId>
-					<version>3.4.2</version>
-				</plugin>
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-resources-plugin</artifactId>
-					<version>3.3.1</version>
-				</plugin>
-				<plugin>
-					<groupId>org.codehaus.mojo</groupId>
-					<artifactId>license-maven-plugin</artifactId>
-					<version>2.5.0</version>
+					<artifactId>maven-checkstyle-plugin</artifactId>
+					<version>${checkstyle.plugin.version}</version>
+					<dependencies>
+						<dependency>
+							<groupId>com.puppycrawl.tools</groupId>
+							<artifactId>checkstyle</artifactId>
+							<version>10.25.0</version>
+						</dependency>
+					</dependencies>
+					<configuration>
+						<configLocation>${project.root.basedir}/lint/checkstyle.xml</configLocation>
+						<consoleOutput>true</consoleOutput>
+						<failOnViolation>true</failOnViolation>
+						<linkXRef>false</linkXRef>
+						<includeTestSourceDirectory>true</includeTestSourceDirectory>
+						<excludeGeneratedSources>true</excludeGeneratedSources>
+					</configuration>
+					<executions>
+						<execution>
+							<phase>validate</phase>
+							<goals>
+								<goal>check</goal>
+							</goals>
+						</execution>
+					</executions>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
@@ -197,23 +201,148 @@
 							<version>${pmd.version}</version>
 						</dependency>
 					</dependencies>
+					<configuration>
+						<excludeRoots>
+							<excludeRoot>${project.build.directory}/generated-sources</excludeRoot>
+						</excludeRoots>
+						<printFailingErrors>true</printFailingErrors>
+						<rulesets>
+							<ruleset>${project.root.basedir}/lint/pmd.xml</ruleset>
+						</rulesets>
+						<analysisCache>true</analysisCache>
+						<linkXRef>false</linkXRef>
+						<targetJdk>${maven.compiler.release}</targetJdk>
+					</configuration>
+					<executions>
+						<execution>
+							<phase>validate</phase>
+							<goals>
+								<goal>check</goal>
+							</goals>
+						</execution>
+					</executions>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-gpg-plugin</artifactId>
-					<version>3.2.7</version>
+					<artifactId>maven-release-plugin</artifactId>
+					<version>3.1.1</version>
+					<configuration>
+						<autoVersionSubmodules>true</autoVersionSubmodules>
+						<tagNameFormat>release-@{project.version}</tagNameFormat>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-clean-plugin</artifactId>
+					<!-- WORKAROUND: https://github.com/apache/maven-clean-plugin/issues/109 -->
+					<version>3.4.0</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-compiler-plugin</artifactId>
+					<version>3.14.0</version>
 					<executions>
 						<execution>
-							<id>sign-artifacts</id>
-							<phase>verify</phase>
+							<id>default-compile</id>
 							<goals>
-								<goal>sign</goal>
+								<goal>compile</goal>
 							</goals>
 							<configuration>
-								<bestPractices>true</bestPractices>
+								<compilerArgs>
+									<arg>
+										-Xlint:all,-module,-requires-automatic,-requires-transitive-automatic,-missing-explicit-ctor
+									</arg>
+									<arg>-Xdiags:verbose</arg>
+									<arg>-Werror</arg>
+								</compilerArgs>
 							</configuration>
 						</execution>
 					</executions>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-source-plugin</artifactId>
+					<version>3.3.1</version>
+					<executions>
+						<execution>
+							<id>attach-sources</id>
+							<goals>
+								<goal>jar-no-fork</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-install-plugin</artifactId>
+					<version>3.1.4</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-site-plugin</artifactId>
+					<version>4.0.0-M16</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-jar-plugin</artifactId>
+					<version>3.4.2</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-resources-plugin</artifactId>
+					<version>3.3.1</version>
+				</plugin>
+				<plugin>
+					<groupId>org.codehaus.mojo</groupId>
+					<artifactId>license-maven-plugin</artifactId>
+					<version>2.5.0</version>
+					<inherited>false</inherited>
+					<executions>
+						<execution>
+							<id>3rd-party-licenses</id>
+							<goals>
+								<goal>add-third-party</goal>
+							</goals>
+							<phase>prepare-package</phase>
+							<configuration>
+								<outputDirectory>${project.basedir}</outputDirectory>
+							</configuration>
+						</execution>
+						<execution>
+							<id>aggregate-3rd-party-licenses</id>
+							<goals>
+								<goal>aggregate-add-third-party</goal>
+							</goals>
+							<phase>prepare-package</phase>
+							<configuration>
+								<outputDirectory>${project.root.basedir}</outputDirectory>
+							</configuration>
+						</execution>
+					</executions>
+					<configuration>
+						<thirdPartyFilename>LICENSE-3RD-PARTY.md</thirdPartyFilename>
+						<fileTemplate>${project.root.basedir}/licenses/format.ftl</fileTemplate>
+						<licenseMerges>
+							<licenseMerge>Apache License, Version 2.0|Apache 2.0|Apache-2.0|
+								Apache License, Version 2.0, GNU Lesser General Public License|
+								The Apache Software License, Version 2.0
+							</licenseMerge>
+							<licenseMerge>Eclipse Public License (EPL), Version 1.0|Eclipse Public License - v
+								1.0|Eclipse
+								Public License - v 1.0, GNU Lesser General Public License|Eclipse Public License,
+								Version
+								1.0
+							</licenseMerge>
+							<licenseMerge>MIT License|The MIT License|MIT</licenseMerge>
+							<licenseMerge>GNU Lesser General Public License (LGPL)|GNU Lesser General Public License
+							</licenseMerge>
+							<licenseMerge>Common Development And Distribution License (CDDL) + GPL, version 2.0,
+								with
+								classpath exception|CDDL + GPLv2 with classpath exception
+							</licenseMerge>
+						</licenseMerges>
+						<excludedScopes>test,provided</excludedScopes>
+					</configuration>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
@@ -261,511 +390,69 @@
 					</configuration>
 				</plugin>
 				<plugin>
-					<groupId>io.github.ascopes</groupId>
-					<artifactId>protobuf-maven-plugin</artifactId>
-					<version>2.10.5</version>
-				</plugin>
-				<plugin>
-					<groupId>io.github.download-maven-plugin</groupId>
-					<artifactId>download-maven-plugin</artifactId>
-					<version>2.0.0</version>
+					<groupId>org.basepom.maven</groupId>
+					<artifactId>duplicate-finder-maven-plugin</artifactId>
+					<version>2.0.1</version>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-antrun-plugin</artifactId>
-					<version>3.1.0</version>
+					<artifactId>maven-gpg-plugin</artifactId>
+					<version>3.2.7</version>
+					<executions>
+						<execution>
+							<id>sign-artifacts</id>
+							<phase>verify</phase>
+							<goals>
+								<goal>sign</goal>
+							</goals>
+							<configuration>
+								<bestPractices>true</bestPractices>
+							</configuration>
+						</execution>
+					</executions>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-surefire-plugin</artifactId>
+					<version>3.5.3</version>
+					<configuration>
+						<skip>true</skip>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-failsafe-plugin</artifactId>
+					<version>3.5.3</version>
+					<executions>
+						<execution>
+							<goals>
+								<goal>integration-test</goal>
+								<goal>verify</goal>
+							</goals>
+							<configuration>
+								<parallel>methods</parallel>
+								<threadCount>15</threadCount>
+								<forkCount>1C</forkCount>
+							</configuration>
+						</execution>
+					</executions>
 				</plugin>
 			</plugins>
 		</pluginManagement>
-
 		<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-enforcer-plugin</artifactId>
-				<version>3.5.0</version>
-				<executions>
-					<execution>
-						<id>enforce-maven</id>
-						<goals>
-							<goal>enforce</goal>
-						</goals>
-						<configuration>
-							<rules>
-								<requireMavenVersion>
-									<version>${maven.version}</version>
-								</requireMavenVersion>
-							</rules>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-checkstyle-plugin</artifactId>
-				<version>${maven.checkstyle.version}</version>
-				<dependencies>
-					<dependency>
-						<groupId>com.puppycrawl.tools</groupId>
-						<artifactId>checkstyle</artifactId>
-						<version>10.21.1</version>
-					</dependency>
-				</dependencies>
-				<configuration>
-					<configLocation>${project.basedir}/build/src/main/resources/checkstyle.xml</configLocation>
-					<consoleOutput>true</consoleOutput>
-					<failOnViolation>${checkstyle.failOnViolation}</failOnViolation>
-					<linkXRef>false</linkXRef>
-					<includeTestSourceDirectory>true</includeTestSourceDirectory>
-				</configuration>
-				<executions>
-					<execution>
-						<phase>verify</phase>
-						<goals>
-							<goal>check</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-pmd-plugin</artifactId>
-				<configuration>
-					<excludeRoots>
-						<excludeRoot>${project.build.directory}/generated-sources</excludeRoot>
-					</excludeRoots>
-					<printFailingErrors>true</printFailingErrors>
-					<rulesets>
-						<ruleset>build/src/main/resources/pmd.xml</ruleset>
-					</rulesets>
-					<analysisCache>true</analysisCache>
-					<linkXRef>false</linkXRef>
-					<targetJdk>${maven.compiler.release}</targetJdk>
-				</configuration>
-				<executions>
-					<execution>
-						<goals>
-							<goal>check</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-release-plugin</artifactId>
-				<configuration>
-					<autoVersionSubmodules>true</autoVersionSubmodules>
-					<tagNameFormat>release-@{project.version}</tagNameFormat>
-				</configuration>
-			</plugin>
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>license-maven-plugin</artifactId>
-				<version>2.5.0</version>
 				<executions>
 					<execution>
 						<id>3rd-party-licenses</id>
 						<goals>
 							<goal>add-third-party</goal>
 						</goals>
-						<phase>prepare-package</phase>
-						<configuration>
-							<outputDirectory>${project.basedir}</outputDirectory>
-							<thirdPartyFilename>LICENSE-3RD-PARTY.md</thirdPartyFilename>
-							<fileTemplate>${basedir}/licenses/format.ftl</fileTemplate>
-							<licenseMerges>
-								<licenseMerge>Apache License, Version 2.0|Apache 2.0|Apache-2.0|
-									Apache License, Version 2.0, GNU Lesser General Public License|
-									The Apache Software License, Version 2.0
-								</licenseMerge>
-								<licenseMerge>Eclipse Public License (EPL), Version 1.0|Eclipse Public License - v
-									1.0|Eclipse
-									Public License - v 1.0, GNU Lesser General Public License|Eclipse Public License,
-									Version
-									1.0
-								</licenseMerge>
-								<licenseMerge>MIT License|The MIT License|MIT</licenseMerge>
-								<licenseMerge>GNU Lesser General Public License (LGPL)|GNU Lesser General Public License
-								</licenseMerge>
-								<licenseMerge>Common Development And Distribution License (CDDL) + GPL, version 2.0,
-									with
-									classpath exception|CDDL + GPLv2 with classpath exception
-								</licenseMerge>
-							</licenseMerges>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>io.github.download-maven-plugin</groupId>
-				<artifactId>download-maven-plugin</artifactId>
-				<executions>
-					<execution>
-						<id>download-buildkit-control-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/api/services/control/control.proto
-							</url>
-							<outputDirectory>
-								${project.build.directory}/buildkit/github.com/moby/buildkit/api/services/control
-							</outputDirectory>
-						</configuration>
+						<phase>none</phase>
 					</execution>
 					<execution>
-						<id>download-buildkit-worker-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/api/types/worker.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/buildkit/api/types
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-buildkit-ops-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/solver/pb/ops.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/buildkit/solver/pb
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-buildkit-policy-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/sourcepolicy/pb/policy.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/buildkit/sourcepolicy/pb
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-buildkit-errdefs-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/solver/errdefs/errdefs.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/solver/errdefs
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-buildkit-gateway-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/frontend/gateway/pb/gateway.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/frontend/gateway/pb
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-buildkit-stack-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/util/stack/stack.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/util/stack
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-buildkit-caps-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/util/apicaps/pb/caps.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/buildkit/util/apicaps/pb
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-buildkit-auth-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/session/auth/auth.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/session/auth
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-buildkit-ssh-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/session/sshforward/ssh.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/session/sshforward
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-buildkit-secrets-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/session/secrets/secrets.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/session/secrets
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-buildkit-upload-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/session/upload/upload.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/session/upload
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-buildkit-filesync-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/session/filesync/filesync.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/session/filesync
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-buildkit-checksum-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/moby/buildkit/refs/heads/${buildkit.version}/cache/contenthash/checksum.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/github.com/moby/cache/contenthash
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-google-timestamp-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/protocolbuffers/protobuf/refs/tags/v29.3/src/google/protobuf/timestamp.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/google/protobuf
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-google-any-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/protocolbuffers/protobuf/refs/tags/v29.3/src/google/protobuf/any.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/google/protobuf
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-google-descriptor-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/protocolbuffers/protobuf/refs/tags/v29.3/src/google/protobuf/descriptor.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/google/protobuf
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-google-status-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/googleapis/googleapis/master/google/rpc/status.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/google/rpc
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-tonistiigi-stat-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								<!-- Commit ID taken from https://github.com/moby/buildkit/blob/master/go.mod -->
-								https://raw.githubusercontent.com/tonistiigi/fsutil/b14e27f4135a/types/stat.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/github.com/tonistiigi/fsutil/types
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-tonistiigi-wire-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/tonistiigi/fsutil/b14e27f4135a/types/wire.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/github.com/tonistiigi/fsutil/types
-							</outputDirectory>
-						</configuration>
-					</execution>
-					<execution>
-						<id>download-planetscale-ext-proto</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>
-								https://raw.githubusercontent.com/planetscale/vtprotobuf/0393e58bdf10/include/github.com/planetscale/vtprotobuf/vtproto/ext.proto
-							</url>
-							<outputDirectory>${project.build.directory}/buildkit/github.com/planetscale/vtprotobuf/vtproto
-							</outputDirectory>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-antrun-plugin</artifactId>
-				<executions>
-					<execution>
-						<id>replace-proto-package</id>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>run</goal>
-						</goals>
-						<configuration>
-							<target>
-								<!--
-								Rename the package of generated classes to avoid a conflict with the
-								com.google.protobuf:protobuf-java dependency.
-								-->
-								<replaceregexp match="option java_package = &quot;com.google.protobuf&quot;;"
-								               replace="option java_package = &quot;com.google.protobuf.generated&quot;;"
-								               flags="g">
-									<fileset dir="${project.build.directory}/buildkit">
-										<include name="**/*.proto"/>
-									</fileset>
-								</replaceregexp>
-								<!-- Remove unused import to avoid compile-time warning -->
-								<replaceregexp
-									match="import &quot;github.com/planetscale/vtprotobuf/vtproto/ext.proto&quot;;\n" replace=""
-									flags="g">
-									<fileset dir="${project.build.directory}/buildkit/github.com/tonistiigi/fsutil/types">
-										<include name="stat.proto"/>
-									</fileset>
-								</replaceregexp>
-							</target>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>io.github.ascopes</groupId>
-				<artifactId>protobuf-maven-plugin</artifactId>
-				<executions>
-					<execution>
-						<goals>
-							<goal>generate</goal>
-						</goals>
-						<configuration>
-							<sourceDirectories>
-								<sourceDirectory>${project.build.directory}/buildkit</sourceDirectory>
-							</sourceDirectories>
-							<protocVersion>${protobuf.version}</protocVersion>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<executions>
-					<execution>
-						<id>default-compile</id>
-						<goals>
-							<goal>compile</goal>
-						</goals>
-						<configuration>
-							<compilerArgs>
-								<arg>-Xlint:all,-module,-requires-automatic,-requires-transitive-automatic</arg>
-								<arg>-Xdiags:verbose</arg>
-								<arg>-Werror</arg>
-							</compilerArgs>
-						</configuration>
+						<id>aggregate-3rd-party-licenses</id>
 					</execution>
 				</executions>
 			</plugin>
@@ -779,34 +466,16 @@
 				<plugins>
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
-						<artifactId>maven-source-plugin</artifactId>
-						<executions>
-							<execution>
-								<id>attach-sources</id>
-								<goals>
-									<goal>jar-no-fork</goal>
-								</goals>
-							</execution>
-						</executions>
-					</plugin>
-					<plugin>
-						<groupId>org.apache.maven.plugins</groupId>
-						<artifactId>maven-javadoc-plugin</artifactId>
-						<executions>
-							<execution>
-								<id>attach-javadocs</id>
-								<goals>
-									<goal>jar</goal>
-								</goals>
-							</execution>
-						</executions>
-					</plugin>
-					<plugin>
-						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-gpg-plugin</artifactId>
 					</plugin>
 				</plugins>
 			</build>
 		</profile>
 	</profiles>
+
+	<modules>
+		<module>core</module>
+		<module>buildx</module>
+		<module>docker</module>
+	</modules>
 </project>
