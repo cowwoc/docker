@@ -103,7 +103,7 @@ public final class Paths
 			catch (IOException | UncheckedIOException e)
 			{
 				Logger log = LoggerFactory.getLogger(Processes.class);
-				log.warn("Skipping {}", directory, e);
+				log.debug("Skipping {}", directory, e);
 			}
 		}
 		return matchPath;

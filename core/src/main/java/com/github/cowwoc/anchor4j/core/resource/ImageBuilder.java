@@ -1,6 +1,7 @@
 package com.github.cowwoc.anchor4j.core.resource;
 
 import com.github.cowwoc.anchor4j.core.exception.BuilderNotFoundException;
+import com.github.cowwoc.anchor4j.core.exception.UnsupportedExporterException;
 import com.github.cowwoc.anchor4j.core.internal.client.CommandResult;
 import com.github.cowwoc.anchor4j.core.internal.client.InternalClient;
 import com.github.cowwoc.anchor4j.core.internal.client.Processes;
@@ -43,6 +44,7 @@ public final class ImageBuilder
 		"error reading preface from client .+?: file has already been closed\n");
 	private static final Pattern FILE_NOT_FOUND_PATTERN = Pattern.compile("ERROR: resolve : " +
 		"CreateFile (.+?): The system cannot find the file specified\\.");
+	private static final String DOCKER_DRIVER_DOES_NOT_SUPPORT_OCI = "ERROR: OCI exporter is not supported for the docker driver.";
 
 	private final InternalClient client;
 	private final ErrorHandler errorHandler;
@@ -207,12 +209,13 @@ public final class ImageBuilder
 	 * @param buildContext the build context, the directory relative to which paths in the Dockerfile are
 	 *                     evaluated
 	 * @return the ID of the new image, or null if none of the {@link #export(Exporter) exports} output an image
-	 * @throws NullPointerException  if {@code buildContext} is null
-	 * @throws FileNotFoundException if any of the referenced paths do not exist
-	 * @throws IOException           if an I/O error occurs. These errors are typically transient, and retrying
-	 *                               the request may resolve the issue.
-	 * @throws InterruptedException  if the thread is interrupted before the operation completes. This can
-	 *                               happen due to shutdown signals.
+	 * @throws NullPointerException         if {@code buildContext} is null
+	 * @throws FileNotFoundException        if any of the referenced paths do not exist
+	 * @throws UnsupportedExporterException if the builder does not support one of the requested exporters
+	 * @throws IOException                  if an I/O error occurs. These errors are typically transient, and
+	 *                                      retrying the request may resolve the issue.
+	 * @throws InterruptedException         if the thread is interrupted before the operation completes. This
+	 *                                      can happen due to shutdown signals.
 	 */
 	public String build(Path buildContext) throws IOException, InterruptedException
 	{
@@ -265,7 +268,7 @@ public final class ImageBuilder
 			{
 				arguments.add("--iidfile");
 				arguments.add(imageIdFile.toString());
-				buildPart2(arguments, absoluteBuildContext);
+				build2(arguments, absoluteBuildContext);
 				return Files.readString(imageIdFile);
 			}
 			finally
@@ -275,7 +278,7 @@ public final class ImageBuilder
 				Files.deleteIfExists(imageIdFile);
 			}
 		}
-		buildPart2(arguments, absoluteBuildContext);
+		build2(arguments, absoluteBuildContext);
 		return null;
 	}
 
@@ -290,7 +293,7 @@ public final class ImageBuilder
 	 *                              due to shutdown signals.
 	 */
 	@SuppressWarnings("BusyWait")
-	private void buildPart2(List<String> arguments, Path absoluteBuildContext)
+	private void build2(List<String> arguments, Path absoluteBuildContext)
 		throws IOException, InterruptedException
 	{
 		arguments.add(absoluteBuildContext.toString());
@@ -393,6 +396,13 @@ public final class ImageBuilder
 					matcher = BuildXParser.NOT_FOUND.matcher(stderr);
 					if (matcher.matches())
 						throw new BuilderNotFoundException(matcher.group(1));
+					if (stderr.startsWith(DOCKER_DRIVER_DOES_NOT_SUPPORT_OCI))
+					{
+						throw new UnsupportedExporterException("The \"docker\" driver does not support the OCI " +
+							"exporter. Switch to a builder with a driver that does, or enable the containerd image store." +
+							"For more information, see https://docs.docker.com/build/builders/drivers/ and " +
+							"https://docs.docker.com/engine/storage/containerd/.");
+					}
 
 					String workingDirectory;
 					if (processBuilder.directory() != null)
@@ -623,10 +633,10 @@ public final class ImageBuilder
 		 */
 		public Exporter build()
 		{
-			return new ExporterAdapter();
+			return new ExporterAdpter();
 		}
 
-		private final class ExporterAdapter implements Exporter
+		private final class ExporterAdpter implements Exporter
 		{
 			@Override
 			public String getType()
@@ -823,10 +833,10 @@ public final class ImageBuilder
 		 */
 		public Exporter build()
 		{
-			return new OutputAdapter();
+			return new ExporterAdapter();
 		}
 
-		private final class OutputAdapter implements Exporter
+		private final class ExporterAdapter implements Exporter
 		{
 			@Override
 			public String getType()
@@ -947,10 +957,10 @@ public final class ImageBuilder
 		 */
 		public Exporter build()
 		{
-			return new OutputAdapter();
+			return new ExporterAdpter();
 		}
 
-		private final class OutputAdapter implements Exporter
+		private final class ExporterAdpter implements Exporter
 		{
 			@Override
 			public String getType()
@@ -1026,10 +1036,10 @@ public final class ImageBuilder
 		 */
 		public Exporter build()
 		{
-			return new OutputAdapter();
+			return new ExporterAdapter();
 		}
 
-		private final class OutputAdapter implements Exporter
+		private final class ExporterAdapter implements Exporter
 		{
 			@Override
 			public String getType()

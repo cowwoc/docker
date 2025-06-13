@@ -10,6 +10,7 @@ module com.github.cowwoc.anchor4j.core
 
 	exports com.github.cowwoc.anchor4j.core.client;
 	exports com.github.cowwoc.anchor4j.core.resource;
+	exports com.github.cowwoc.anchor4j.core.exception;
 
 	exports com.github.cowwoc.anchor4j.core.internal.client to
 		com.github.cowwoc.anchor4j.buildx, com.github.cowwoc.anchor4j.docker,

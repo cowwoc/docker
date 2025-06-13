@@ -1,6 +1,7 @@
 package com.github.cowwoc.anchor4j.core.client;
 
 import com.github.cowwoc.anchor4j.core.resource.Builder;
+import com.github.cowwoc.anchor4j.core.resource.BuilderCreator;
 import com.github.cowwoc.anchor4j.core.resource.ImageBuilder;
 import com.github.cowwoc.requirements11.annotation.CheckReturnValue;
 
@@ -38,6 +39,14 @@ public interface Client
 	 *                                  happen due to shutdown signals.
 	 */
 	Builder getBuilder(String name) throws IOException, InterruptedException;
+
+	/**
+	 * Creates a builder.
+	 *
+	 * @return a builder creator
+	 */
+	@CheckReturnValue
+	BuilderCreator createBuilder();
 
 	/**
 	 * Blocks until the default builder is reachable and has a {@code RUNNING} state.

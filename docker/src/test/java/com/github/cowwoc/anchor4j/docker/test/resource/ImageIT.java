@@ -1,9 +1,11 @@
 package com.github.cowwoc.anchor4j.docker.test.resource;
 
+import com.github.cowwoc.anchor4j.core.exception.UnsupportedExporterException;
 import com.github.cowwoc.anchor4j.core.internal.client.CommandResult;
 import com.github.cowwoc.anchor4j.core.internal.client.Processes;
 import com.github.cowwoc.anchor4j.core.internal.util.Exceptions;
 import com.github.cowwoc.anchor4j.core.internal.util.Paths;
+import com.github.cowwoc.anchor4j.core.resource.BuilderCreator.Driver;
 import com.github.cowwoc.anchor4j.core.resource.ImageBuilder;
 import com.github.cowwoc.anchor4j.core.resource.ImageBuilder.Exporter;
 import com.github.cowwoc.anchor4j.core.resource.ImageBuilder.ProgressType;
@@ -542,6 +544,30 @@ public final class ImageIT
 		Path tempDirectory = Files.createTempDirectory("");
 		String id = client.buildImage().
 			export(Exporter.ociImage(tempDirectory.toString()).directory().build()).
+			build(buildContext);
+		requireThat(id, "id").isNotNull();
+		List<ImageElement> images = client.listImages();
+		requireThat(images, "images").isEmpty();
+		requireThat(tempDirectory, "tempDirectory").isNotEmpty();
+		it.onSuccess();
+		Paths.deleteRecursively(tempDirectory);
+	}
+
+	@Test(expectedExceptions = UnsupportedExporterException.class)
+	public void buildAndOutputOciUsingDockerDriver() throws IOException, InterruptedException, TimeoutException
+	{
+		IntegrationTestContainer it = new IntegrationTestContainer();
+		Docker client = it.getClient();
+		String builder = client.createBuilder().driver(Driver.dockerContainer().build()).
+			context(it.getName()).
+			create();
+
+		Path buildContext = Path.of("src/test/resources");
+
+		Path tempDirectory = Files.createTempDirectory("");
+		String id = client.buildImage().
+			export(Exporter.ociImage(tempDirectory.toString()).directory().build()).
+			builder(builder).
 			build(buildContext);
 		requireThat(id, "id").isNotNull();
 		List<ImageElement> images = client.listImages();
