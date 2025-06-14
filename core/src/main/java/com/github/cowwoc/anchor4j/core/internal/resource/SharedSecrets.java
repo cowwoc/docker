@@ -3,6 +3,7 @@ package com.github.cowwoc.anchor4j.core.internal.resource;
 import com.github.cowwoc.anchor4j.core.internal.client.InternalClient;
 import com.github.cowwoc.anchor4j.core.resource.Builder;
 import com.github.cowwoc.anchor4j.core.resource.Builder.Status;
+import com.github.cowwoc.anchor4j.core.resource.BuilderCreator;
 import com.github.cowwoc.anchor4j.core.resource.ImageBuilder;
 
 import java.lang.invoke.MethodHandles;
@@ -38,6 +39,24 @@ public final class SharedSecrets
 	{
 		assert that(buildXAccess, "buildXAccess").isNotNull().elseThrow();
 		SharedSecrets.buildXAccess = buildXAccess;
+	}
+
+	/**
+	 * Creates a builder.
+	 *
+	 * @param client the client configuration
+	 * @return a builder creator
+	 */
+	public static BuilderCreator createBuilder(InternalClient client)
+	{
+		BuildXAccess access = buildXAccess;
+		if (access == null)
+		{
+			initialize();
+			access = buildXAccess;
+			assert access != null;
+		}
+		return access.create(client);
 	}
 
 	/**

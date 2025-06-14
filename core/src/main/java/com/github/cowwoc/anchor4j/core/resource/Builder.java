@@ -25,6 +25,12 @@ public final class Builder
 		SharedSecrets.setBuildXAccess(new BuildXAccess()
 		{
 			@Override
+			public BuilderCreator create(InternalClient client)
+			{
+				return new BuilderCreator(client);
+			}
+
+			@Override
 			public Builder get(InternalClient client, String name, Status status, String error)
 			{
 				return new Builder(client, name, status, error);

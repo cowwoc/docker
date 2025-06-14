@@ -6,6 +6,7 @@ import com.github.cowwoc.anchor4j.core.internal.resource.SharedSecrets;
 import com.github.cowwoc.anchor4j.core.internal.util.Exceptions;
 import com.github.cowwoc.anchor4j.core.resource.Builder;
 import com.github.cowwoc.anchor4j.core.resource.Builder.Status;
+import com.github.cowwoc.anchor4j.core.resource.BuilderCreator;
 import com.github.cowwoc.anchor4j.core.resource.ImageBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -257,6 +258,12 @@ public abstract class AbstractInternalClient implements InternalClient
 		arguments.add("inspect");
 		CommandResult result = run(arguments);
 		return getBuildXParser().get(result);
+	}
+
+	@Override
+	public BuilderCreator createBuilder()
+	{
+		return SharedSecrets.createBuilder(this);
 	}
 
 	@Override

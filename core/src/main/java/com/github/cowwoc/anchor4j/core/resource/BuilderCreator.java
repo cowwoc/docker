@@ -113,10 +113,7 @@ public final class BuilderCreator
 			arguments.add(name);
 		}
 		if (driver != null)
-		{
-			arguments.add("--driver");
 			arguments.addAll(driver.toCommandLine());
-		}
 		if (!context.isEmpty())
 			arguments.add(context);
 		CommandResult result = client.run(arguments);
