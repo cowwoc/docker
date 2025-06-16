@@ -14,8 +14,10 @@
 		<license>
 			<name>ModernJDK License v1.0</name>
 			<url>https://github.com/cowwoc/anchor4j/blob/main/docs/modern-jdk-license-1.0.md</url>
-			<distribution>repo</distribution>
-			<comments>Use restricted to latest GA JDK. See commercial license for broader use.</comments>
+		</license>
+		<license>
+			<name>Commercial License</name>
+			<url>https://github.com/cowwoc/anchor4j/blob/main/docs/commercial-license.md</url>
 		</license>
 	</licenses>
 	<organization>
