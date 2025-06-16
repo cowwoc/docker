@@ -18,9 +18,9 @@ To get started, add this Maven dependency:
 ```xml
 
 <dependency>
-	<groupId>com.github.cowwoc.anchor4j</groupId>
-	<artifactId>anchor4j</artifactId>
-	<version>0.10</version>
+  <groupId>com.github.cowwoc.anchor4j</groupId>
+  <artifactId>anchor4j</artifactId>
+  <version>0.10</version>
 </dependency>
 ```
 
@@ -33,19 +33,19 @@ import java.io.IOException;
 
 class Example
 {
-	public static void main(String[] args)
-		throws IOException, InterruptedException
-	{
-		Docker docker = Docker.connect();
+  public static void main(String[] args)
+    throws IOException, InterruptedException
+  {
+    Docker docker = Docker.connect();
 
-		String imageId = docker.buildImage().
-			platform("linux/amd64").
-			export(Exporter.dockerImage().build()).
-			build(".");
+    String imageId = docker.buildImage().
+      platform("linux/amd64").
+      export(Exporter.dockerImage().build()).
+      build(".");
 
-		docker.tagImage(id, "rocket-ship");
-		docker.pushImage("rocket-ship").push();
-	}
+    docker.tagImage(id, "rocket-ship");
+    docker.pushImage("rocket-ship").push();
+  }
 }
 ```
 
