@@ -35,16 +35,16 @@ import static java.util.regex.Pattern.DOTALL;
  */
 public final class ContainerParser extends AbstractParser
 {
-	private static final Pattern CONTAINER_NOT_FOUND = Pattern.compile("^Error response from daemon: " +
-		"No such container: ([^ ]+).*", DOTALL);
+	private static final Pattern CONTAINER_NOT_FOUND = Pattern.compile(
+		"^Error response from daemon: No such container: ([^ ]+).*", DOTALL);
 	private static final Pattern IMAGE_NOT_FOUND = Pattern.compile("^Unable to find image '([^']+)' locally.*",
 		DOTALL);
-	private static final Pattern CONTAINER_IN_USE = Pattern.compile("Error response from daemon: cannot " +
-		"remove container \"([^\"]+)\": container is running: stop the container before removing or force " +
-		"remove");
-	private static final Pattern CONFLICTING_NAME = Pattern.compile("Error response from daemon: " +
-		"Conflict\\. The container name \"([^\"]+)\" is already in use by container \"([^\"]+)\"\\. You have " +
-		"to remove \\(or rename\\) that container to be able to reuse that name\\.");
+	private static final Pattern CONTAINER_IN_USE = Pattern.compile("""
+		Error response from daemon: cannot remove container "([^"]+)": container is running: stop the \
+		container before removing or force remove""");
+	private static final Pattern CONFLICTING_NAME = Pattern.compile("""
+		Error response from daemon: Conflict\\. The container name "([^"]+)" is already in use by container \
+		"([^"]+)"\\. You have to remove \\(or rename\\) that container to be able to reuse that name\\.""");
 
 	/**
 	 * Creates a parser.

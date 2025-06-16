@@ -97,4 +97,17 @@ public final class BuildXParser extends AbstractParser
 		assert that(status, "status").withContext(result.stdout(), "stdout").isNotNull().elseThrow();
 		return SharedSecrets.getBuildXBuilder(client, name, status, error);
 	}
+
+	/**
+	 * Creates a builder.
+	 *
+	 * @param result the result of executing a command
+	 * @return the name of the builder
+	 */
+	public String create(CommandResult result)
+	{
+		if (result.exitCode() != 0)
+			throw result.unexpectedResponse();
+		return result.stdout();
+	}
 }

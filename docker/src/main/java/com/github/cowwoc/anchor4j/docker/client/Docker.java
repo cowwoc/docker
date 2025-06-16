@@ -1,7 +1,6 @@
 package com.github.cowwoc.anchor4j.docker.client;
 
 import com.github.cowwoc.anchor4j.core.client.Client;
-import com.github.cowwoc.anchor4j.core.internal.util.Paths;
 import com.github.cowwoc.anchor4j.docker.exception.LastManagerException;
 import com.github.cowwoc.anchor4j.docker.exception.NotSwarmManagerException;
 import com.github.cowwoc.anchor4j.docker.exception.NotSwarmMemberException;
@@ -58,21 +57,11 @@ public interface Docker extends Client
 	 * variable.
 	 *
 	 * @return a client
+	 * @throws IOException if an I/O error occurs while reading file attributes
 	 */
 	static Docker connect() throws IOException
 	{
-		return connect(getExecutableFromPath());
-	}
-
-	/**
-	 * @return the path of the {@code docker} executable located in the {@code PATH} environment variable
-	 */
-	static Path getExecutableFromPath() throws IOException
-	{
-		Path path = Paths.searchPath(List.of("docker.exe", "docker"));
-		if (path == null)
-			throw new IOException("Could not find docker on the PATH");
-		return path;
+		return new DefaultDocker();
 	}
 
 	/**

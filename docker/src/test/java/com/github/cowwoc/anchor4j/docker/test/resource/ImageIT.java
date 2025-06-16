@@ -1,25 +1,20 @@
 package com.github.cowwoc.anchor4j.docker.test.resource;
 
-import com.github.cowwoc.anchor4j.core.internal.client.CommandResult;
-import com.github.cowwoc.anchor4j.core.internal.client.Processes;
-import com.github.cowwoc.anchor4j.core.internal.util.Exceptions;
 import com.github.cowwoc.anchor4j.core.internal.util.Paths;
+import com.github.cowwoc.anchor4j.core.resource.BuilderCreator.Driver;
+import com.github.cowwoc.anchor4j.core.resource.DefaultBuildListener;
 import com.github.cowwoc.anchor4j.core.resource.ImageBuilder;
 import com.github.cowwoc.anchor4j.core.resource.ImageBuilder.Exporter;
-import com.github.cowwoc.anchor4j.core.resource.ImageBuilder.ProgressType;
+import com.github.cowwoc.anchor4j.core.test.TestBuildListener;
 import com.github.cowwoc.anchor4j.docker.client.Docker;
-import com.github.cowwoc.anchor4j.docker.exception.ContextNotFoundException;
 import com.github.cowwoc.anchor4j.docker.exception.ResourceNotFoundException;
 import com.github.cowwoc.anchor4j.docker.resource.Image;
 import com.github.cowwoc.anchor4j.docker.resource.ImageElement;
 import com.github.cowwoc.anchor4j.docker.test.IntegrationTestContainer;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -30,17 +25,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Matcher;
 
-import static com.github.cowwoc.anchor4j.docker.internal.client.DefaultDocker.UNABLE_TO_PARSE_DOCKER_HOST;
 import static com.github.cowwoc.requirements11.java.DefaultJavaValidators.requireThat;
 
 public final class ImageIT
@@ -49,7 +38,6 @@ public final class ImageIT
 	static final String EXISTING_IMAGE = "ghcr.io/hlesey/busybox";
 	static final String MISSING_IMAGE = "ghcr.io/cowwoc/missing";
 	static final String FILE_IN_CONTAINER = "logback-test.xml";
-	private final Logger log = LoggerFactory.getLogger(ImageIT.class);
 
 	@Test
 	public void pull() throws IOException, InterruptedException, TimeoutException
@@ -294,61 +282,19 @@ public final class ImageIT
 	}
 
 	@Test
-	public void buildWithCustomListener() throws IOException, InterruptedException, TimeoutException
+	public void buildPassedWithCustomListener() throws IOException, InterruptedException, TimeoutException
 	{
 		IntegrationTestContainer it = new IntegrationTestContainer();
 		Docker client = it.getClient();
 		Path buildContext = Path.of("src/test/resources");
 
-		AtomicBoolean listenerInvoked = new AtomicBoolean();
-		while (true)
-		{
-			listenerInvoked.set(false);
-			try
-			{
-				client.buildImage().listener((processBuilder, process) ->
-				{
-					listenerInvoked.set(true);
-					StringJoiner stdoutJoiner = new StringJoiner("\n");
-					StringJoiner stderrJoiner = new StringJoiner("\n");
-					BlockingQueue<Throwable> exceptions = new LinkedBlockingQueue<>();
-
-					try (BufferedReader stdoutReader = process.inputReader();
-					     BufferedReader stderrReader = process.errorReader())
-					{
-						Thread stdoutThread = Thread.startVirtualThread(() ->
-							Processes.consume(stdoutReader, exceptions, stdoutJoiner::add));
-						Thread stderrThread = Thread.startVirtualThread(() ->
-							Processes.consume(stderrReader, exceptions, stderrJoiner::add));
-
-						// We have to invoke Thread.join() to ensure that all the data is read. Blocking on Process.waitFor()
-						// does not guarantee this.
-						stdoutThread.join();
-						stderrThread.join();
-						int exitCode = process.waitFor();
-						IOException exception = Exceptions.combineAsIOException(exceptions);
-						if (exception != null)
-							throw exception;
-						String stdout = stdoutJoiner.toString();
-						String stderr = stderrJoiner.toString();
-						if (exitCode != 0)
-						{
-							Matcher matcher = UNABLE_TO_PARSE_DOCKER_HOST.matcher(stderr);
-							if (matcher.matches())
-								throw new ContextNotFoundException(matcher.group(1));
-							throw new CommandResult(processBuilder.command(), Processes.getWorkingDirectory(processBuilder),
-								stdout, stderr, exitCode).unexpectedResponse();
-						}
-					}
-				}).build(buildContext);
-				break;
-			}
-			catch (ContextNotFoundException _)
-			{
-				// WORKAROUND: https://github.com/moby/moby/issues/50160
-			}
-		}
-		requireThat(listenerInvoked.get(), "listenerInvoked").isTrue();
+		TestBuildListener listener = new TestBuildListener();
+		client.buildImage().listener(listener).build(buildContext);
+		requireThat(listener.buildStarted.get(), "buildStarted").isTrue();
+		requireThat(listener.waitUntilBuildCompletes.get(), "waitUntilBuildCompletes").isTrue();
+		requireThat(listener.buildSucceeded.get(), "buildSucceeded").isTrue();
+		requireThat(listener.buildFailed.get(), "buildSucceeded").isFalse();
+		requireThat(listener.buildCompleted.get(), "buildCompleted").isTrue();
 		it.onSuccess();
 	}
 
@@ -359,54 +305,25 @@ public final class ImageIT
 		Docker client = it.getClient();
 		Path buildContext = Path.of("src/test/resources");
 
-		String firstImageTag = it.getName().toLowerCase(Locale.ROOT) + ".first";
-		client.buildImage().reference(firstImageTag).build(buildContext);
+		Path tempFile = Files.createTempFile("", ".tar");
+		String id = client.buildImage().
+			export(Exporter.ociImage(tempFile.toString()).build()).
+			build(buildContext);
+		requireThat(id, "id").isNotNull();
 
 		AtomicBoolean cacheWasUsed = new AtomicBoolean(false);
-		client.buildImage().cacheFrom(firstImageTag).listener((_, process) ->
+		client.buildImage().cacheFrom(id).listener(new DefaultBuildListener()
 		{
-			Thread stdoutThread = Thread.startVirtualThread(() ->
-				Processes.discard(process.getInputStream(), log));
-			Thread stderrThread = Thread.startVirtualThread(() ->
+			@Override
+			public void onStderrLine(String line)
 			{
-				try (BufferedReader stderr = process.errorReader())
-				{
-					while (true)
-					{
-						String line = stderr.readLine();
-						if (line == null)
-							break;
-						if (line.endsWith("CACHED"))
-							cacheWasUsed.set(true);
-					}
-				}
-				catch (IOException | RuntimeException e)
-				{
-					log.error("", e);
-				}
-			});
-
-			// We have to invoke Thread.join() to ensure that all the data is read. Blocking on Process.waitFor()
-			// does not guarantee this.
-			stdoutThread.join();
-			stderrThread.join();
-			int exitCode = process.waitFor();
-			if (exitCode != 0)
-				throw new IOException("Process returned exit code " + exitCode);
+				super.onStderrLine(line);
+				if (line.endsWith("CACHED"))
+					cacheWasUsed.set(true);
+			}
 		}).build(buildContext);
 		requireThat(cacheWasUsed.get(), "cacheWasUsed").isTrue();
-		it.onSuccess();
-	}
-
-	@Test
-	public void buildWithProgressType() throws IOException, InterruptedException, TimeoutException
-	{
-		IntegrationTestContainer it = new IntegrationTestContainer();
-		Docker client = it.getClient();
-		Path buildContext = Path.of("src/test/resources");
-
-		String id = client.buildImage().progressType(ProgressType.PLAIN).build(buildContext);
-		requireThat(id, "id").isNull();
+		Files.delete(tempFile);
 		it.onSuccess();
 	}
 
@@ -546,6 +463,31 @@ public final class ImageIT
 		requireThat(id, "id").isNotNull();
 		List<ImageElement> images = client.listImages();
 		requireThat(images, "images").isEmpty();
+		requireThat(tempDirectory, "tempDirectory").isNotEmpty();
+		it.onSuccess();
+		Paths.deleteRecursively(tempDirectory);
+	}
+
+	@Test
+	public void buildAndOutputOciImageToDirectoryUsingDockerContainerDriver() throws IOException, InterruptedException, TimeoutException
+	{
+		IntegrationTestContainer it = new IntegrationTestContainer();
+		Docker client = it.getClient();
+		String builder = client.createBuilder().driver(Driver.dockerContainer().build()).
+			context(it.getName()).
+			create();
+
+		Path buildContext = Path.of("src/test/resources");
+
+		Path tempDirectory = Files.createTempDirectory("");
+		String id = client.buildImage().
+			export(Exporter.ociImage(tempDirectory.toString()).directory().build()).
+			builder(builder).
+			build(buildContext);
+		requireThat(id, "id").isNotNull();
+
+		List<ImageElement> images = client.listImages();
+		requireThat(images, "images").isNotEmpty();
 		requireThat(tempDirectory, "tempDirectory").isNotEmpty();
 		it.onSuccess();
 		Paths.deleteRecursively(tempDirectory);

@@ -2,9 +2,9 @@ package com.github.cowwoc.anchor4j.docker.internal.client;
 
 import com.github.cowwoc.anchor4j.core.internal.client.AbstractInternalClient;
 import com.github.cowwoc.anchor4j.core.internal.client.CommandResult;
+import com.github.cowwoc.anchor4j.core.internal.util.Paths;
 import com.github.cowwoc.anchor4j.core.resource.ImageBuilder;
 import com.github.cowwoc.anchor4j.docker.client.Docker;
-import com.github.cowwoc.anchor4j.docker.exception.ContextNotFoundException;
 import com.github.cowwoc.anchor4j.docker.exception.NotSwarmManagerException;
 import com.github.cowwoc.anchor4j.docker.internal.resource.ConfigParser;
 import com.github.cowwoc.anchor4j.docker.internal.resource.ContainerParser;
@@ -46,14 +46,14 @@ import com.github.cowwoc.anchor4j.docker.resource.SwarmCreator;
 import com.github.cowwoc.anchor4j.docker.resource.SwarmJoiner;
 import com.github.cowwoc.anchor4j.docker.resource.SwarmLeaver;
 import com.github.cowwoc.anchor4j.docker.resource.Task;
+import com.github.cowwoc.pouch.core.ConcurrentLazyReference;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.github.cowwoc.requirements11.java.DefaultJavaValidators.requireThat;
 import static com.github.cowwoc.requirements11.java.DefaultJavaValidators.that;
@@ -65,13 +65,30 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public final class DefaultDocker extends AbstractInternalClient
 	implements InternalDocker
 {
-	// Variants seen:
-	// ERROR: unable to parse docker host `([^`]+)`
-	// ERROR: no valid drivers found: unable to parse docker host `([^`]+)`
-	public static final Pattern UNABLE_TO_PARSE_DOCKER_HOST = Pattern.compile("ERROR: (?:.*?: )?" +
-		"unable to parse docker host `([^`]+)`");
-	private static final Pattern FILE_IN_USE_BY_ANOTHER_PROCESS = Pattern.compile("ERROR: open (.+?): " +
-		"The process cannot access the file because it is being used by another process\\.");
+	private static final ConcurrentLazyReference<Path> EXECUTABLE_FROM_PATH = ConcurrentLazyReference.create(
+		() ->
+		{
+			Path path = Paths.searchPath(List.of("docker.exe", "docker"));
+			if (path == null)
+				throw new UncheckedIOException(new IOException("Could not find docker on the PATH"));
+			return path;
+		});
+
+	/**
+	 * @return the path of the {@code docker} executable located in the {@code PATH} environment variable
+	 */
+	private static Path getExecutableFromPath() throws IOException
+	{
+		try
+		{
+			return EXECUTABLE_FROM_PATH.getValue();
+		}
+		catch (UncheckedIOException e)
+		{
+			throw e.getCause();
+		}
+	}
+
 	private String clientContext = "";
 	@SuppressWarnings("this-escape")
 	private final ConfigParser configParser = new ConfigParser(this);
@@ -89,6 +106,17 @@ public final class DefaultDocker extends AbstractInternalClient
 	private final NodeParser nodeParser = new NodeParser(this);
 	@SuppressWarnings("this-escape")
 	private final SwarmParser swarmParser = new SwarmParser(this);
+
+	/**
+	 * Creates a client that uses the {@code docker} executable located in the {@code PATH} environment
+	 * variable.
+	 *
+	 * @throws IOException if an I/O error occurs while reading file attributes
+	 */
+	public DefaultDocker() throws IOException
+	{
+		this(getExecutableFromPath());
+	}
 
 	/**
 	 * Creates a client.
@@ -121,20 +149,7 @@ public final class DefaultDocker extends AbstractInternalClient
 	@Override
 	public ImageBuilder buildImage()
 	{
-		return com.github.cowwoc.anchor4j.core.internal.resource.SharedSecrets.buildImage(this, (_, error) ->
-		{
-			// WORKAROUND: https://github.com/moby/moby/issues/50160
-			Matcher matcher = UNABLE_TO_PARSE_DOCKER_HOST.matcher(error);
-			if (matcher.matches())
-				throw new ContextNotFoundException(matcher.group(1));
-			matcher = FILE_IN_USE_BY_ANOTHER_PROCESS.matcher(error);
-			if (matcher.matches())
-			{
-				throw new IOException("Failed to build the image because a file is being used by another " +
-					"process.\n" +
-					"File     : " + matcher.group(1));
-			}
-		});
+		return com.github.cowwoc.anchor4j.core.internal.resource.SharedSecrets.buildImage(this);
 	}
 
 	@Override
@@ -467,7 +482,7 @@ public final class DefaultDocker extends AbstractInternalClient
 		for (String filter : filters)
 		{
 			arguments.add("--filter");
-			arguments.add("\"" + filter + "\"");
+			arguments.add(filter);
 		}
 		CommandResult result = run(arguments);
 		return getNodeParser().listNodes(result);
@@ -493,7 +508,7 @@ public final class DefaultDocker extends AbstractInternalClient
 		arguments.add("system");
 		arguments.add("info");
 		arguments.add("--format");
-		arguments.add("\"{{json .Swarm.NodeID}}\"");
+		arguments.add("{{json .Swarm.NodeID}}");
 		CommandResult result = run(arguments);
 		return getNodeParser().getNodeId(result);
 	}

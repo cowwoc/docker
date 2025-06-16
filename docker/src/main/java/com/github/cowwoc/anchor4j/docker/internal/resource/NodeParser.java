@@ -39,16 +39,17 @@ public class NodeParser extends AbstractParser
 	// Known variants:
 	// Error response from daemon: This node is not a swarm manager. Use "docker swarm init" or "docker swarm join" to connect this node to swarm and try again.
 	// Error response from daemon: This node is not a swarm manager. Worker nodes can't be used to view or modify cluster state. Please run this command on a manager node or promote the current node to a manager.
-	static final String NOT_SWARM_MANAGER = "Error response from daemon: This node is not a swarm " +
-		"manager.";
-	private static final String DEMOTING_LAST_MANAGER = "Error response from daemon: rpc error: " +
-		"code = FailedPrecondition desc = attempting to demote the last manager of the swarm";
-	private static final Pattern UNIX_SOCKET_MISSING = Pattern.compile("Error response from daemon: " +
-		"rpc error: code = Unavailable desc = connection error: desc = \"transport: Error while dialing: dial " +
-		"(unix .+?): connect: no such file or directory\"");
-	private static final String ACCESS_DENIED_TO_WORKER = "Error response from daemon: This node is not a " +
-		"swarm manager. Worker nodes can't be used to view or modify cluster state. Please run this command " +
-		"on a manager node or promote the current node to a manager.";
+	static final String NOT_SWARM_MANAGER = "Error response from daemon: This node is not a swarm manager.";
+	private static final String DEMOTING_LAST_MANAGER = """
+		Error response from daemon: rpc error: code = FailedPrecondition desc = attempting to demote the last \
+		manager of the swarm""";
+	private static final Pattern UNIX_SOCKET_MISSING = Pattern.compile("""
+		Error response from daemon: rpc error: code = Unavailable desc = connection error: desc = \
+		"transport: Error while dialing: dial (unix .+?): connect: no such file or directory""");
+	private static final String ACCESS_DENIED_TO_WORKER = """
+		Error response from daemon: This node is not a swarm manager. Worker nodes can't be used to view or \
+		modify cluster state. Please run this command on a manager node or promote the current node to a \
+		manager.""";
 
 	/**
 	 * Creates a parser.

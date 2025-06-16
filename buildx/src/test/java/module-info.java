@@ -1,5 +1,6 @@
 module com.github.cowwoc.anchor4j.buildx.test
 {
+	requires com.github.cowwoc.anchor4j.core.test;
 	requires com.github.cowwoc.anchor4j.buildx;
 	requires org.slf4j;
 	requires ch.qos.logback.core;

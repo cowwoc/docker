@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration debug="false">
 	<!-- Disabled to speed up the build -->
-	<root level="warn">
+	<root level="debug">
 		<appender-ref ref="console"/>
 		<appender-ref ref="file"/>
 	</root>
 
-	<logger name="com.github.cowwoc.anchor4j.core.resource.ImageBuilder.stdout" additivity="false">
+	<logger name="com.github.cowwoc.anchor4j.core.resource.DefaultBuildListener.stdout" additivity="false">
 		<appender-ref ref="stdout"/>
 	</logger>
-	<logger name="com.github.cowwoc.anchor4j.core.resource.ImageBuilder.stderr" additivity="false">
+	<logger name="com.github.cowwoc.anchor4j.core.resource.DefaultBuildListener.stderr" additivity="false">
 		<appender-ref ref="stderr"/>
 	</logger>
 	<logger name="com.github.cowwoc.anchor4j.core.internal.client.AbstractInternalClient.stdout"

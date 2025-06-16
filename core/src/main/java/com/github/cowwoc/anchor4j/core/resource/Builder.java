@@ -2,7 +2,6 @@ package com.github.cowwoc.anchor4j.core.resource;
 
 import com.github.cowwoc.anchor4j.core.internal.client.InternalClient;
 import com.github.cowwoc.anchor4j.core.internal.resource.BuildXAccess;
-import com.github.cowwoc.anchor4j.core.internal.resource.ErrorHandler;
 import com.github.cowwoc.anchor4j.core.internal.resource.SharedSecrets;
 import com.github.cowwoc.anchor4j.core.internal.util.ToStringBuilder;
 import com.github.cowwoc.requirements11.annotation.CheckReturnValue;
@@ -25,15 +24,21 @@ public final class Builder
 		SharedSecrets.setBuildXAccess(new BuildXAccess()
 		{
 			@Override
+			public BuilderCreator create(InternalClient client)
+			{
+				return new BuilderCreator(client);
+			}
+
+			@Override
 			public Builder get(InternalClient client, String name, Status status, String error)
 			{
 				return new Builder(client, name, status, error);
 			}
 
 			@Override
-			public ImageBuilder buildImage(InternalClient client, ErrorHandler errorHandler)
+			public ImageBuilder buildImage(InternalClient client)
 			{
-				return new ImageBuilder(client, errorHandler);
+				return new ImageBuilder(client);
 			}
 
 			@Override

@@ -1,6 +1,4 @@
-package com.github.cowwoc.anchor4j.docker.exception;
-
-import com.github.cowwoc.anchor4j.docker.client.Docker;
+package com.github.cowwoc.anchor4j.core.exception;
 
 import java.io.IOException;
 import java.io.Serial;
@@ -8,7 +6,14 @@ import java.io.Serial;
 import static com.github.cowwoc.requirements11.java.DefaultJavaValidators.requireThat;
 
 /**
- * Thrown if the referenced {@link Docker#getClientContext() context} does not exist.
+ * Thrown if the Docker context cannot be found or resolved.
+ * <p>
+ * This may occur if:
+ * <ul>
+ *   <li>The target host (local or remote) is not reachable or not configured.</li>
+ *   <li>The connection method (e.g., UNIX socket, SSH, TCP) does not exist or is misconfigured.</li>
+ *   <li>The named context is missing or has been deleted.</li>
+ * </ul>
  */
 public class ContextNotFoundException extends IOException
 {

@@ -6,6 +6,7 @@ import com.github.cowwoc.anchor4j.core.internal.resource.SharedSecrets;
 import com.github.cowwoc.anchor4j.core.internal.util.Exceptions;
 import com.github.cowwoc.anchor4j.core.resource.Builder;
 import com.github.cowwoc.anchor4j.core.resource.Builder.Status;
+import com.github.cowwoc.anchor4j.core.resource.BuilderCreator;
 import com.github.cowwoc.anchor4j.core.resource.ImageBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -132,11 +133,7 @@ public abstract class AbstractInternalClient implements InternalClient
 				String stdout = stdoutJoiner.toString();
 				String stderr = stderrJoiner.toString();
 
-				String workingDirectory;
-				if (processBuilder.directory() != null)
-					workingDirectory = processBuilder.directory().getAbsolutePath();
-				else
-					workingDirectory = System.getProperty("user.dir");
+				Path workingDirectory = Processes.getWorkingDirectory(processBuilder);
 				CommandResult result = new CommandResult(processBuilder.command(), workingDirectory, stdout, stderr,
 					exitCode);
 				if (shouldRetry(result))
@@ -260,6 +257,12 @@ public abstract class AbstractInternalClient implements InternalClient
 	}
 
 	@Override
+	public BuilderCreator createBuilder()
+	{
+		return SharedSecrets.createBuilder(this);
+	}
+
+	@Override
 	public Builder getBuilder(String name) throws IOException, InterruptedException
 	{
 		requireThat(name, "name").doesNotContainWhitespace().isNotEmpty();
@@ -315,8 +318,6 @@ public abstract class AbstractInternalClient implements InternalClient
 	@Override
 	public ImageBuilder buildImage()
 	{
-		return SharedSecrets.buildImage(this, (_, _) ->
-		{
-		});
+		return SharedSecrets.buildImage(this);
 	}
 }

@@ -25,10 +25,10 @@ import static com.github.cowwoc.anchor4j.docker.internal.resource.NodeParser.NOT
  */
 public final class ConfigParser extends AbstractParser
 {
-	private static final Pattern NOT_FOUND = Pattern.compile("Error response from daemon: " +
-		"config [^ ]+ not found");
-	private static final Pattern NAME_IN_USE = Pattern.compile("Error response from daemon: " +
-		"rpc error: code = AlreadyExists desc = config ([^ ]+) already exists");
+	private static final Pattern NOT_FOUND = Pattern.compile(
+		"Error response from daemon: config [^ ]+ not found");
+	private static final Pattern NAME_IN_USE = Pattern.compile(
+		"Error response from daemon: rpc error: code = AlreadyExists desc = config ([^ ]+) already exists");
 
 	/**
 	 * Creates a parser.

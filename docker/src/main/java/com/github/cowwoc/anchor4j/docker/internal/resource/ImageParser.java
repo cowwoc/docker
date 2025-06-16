@@ -30,20 +30,22 @@ import static com.github.cowwoc.requirements11.java.DefaultJavaValidators.that;
  */
 public final class ImageParser extends AbstractParser
 {
-	private static final Pattern NOT_FOUND = Pattern.compile("Error response from daemon: " +
-		"No such image: ([^ ]+)");
-	private static final Pattern PULL_REPOSITORY_NOT_FOUND = Pattern.compile("Error response from daemon: " +
-		"pull access denied for [^,]+, repository does not exist or may require 'docker login'");
-	private static final Pattern PULL_MANIFEST_NOT_FOUND = Pattern.compile("Error response from daemon: " +
-		"manifest for [^ ]+ not found: manifest unknown: manifest unknown");
-	private static final Pattern PULL_ACCESS_DENIED1 = Pattern.compile("Error response from daemon: " +
-		"Head \"[^\"]+\": denied");
-	private static final String PULL_ACCESS_DENIED2 = "Error response from daemon: error from registry: " +
-		"denied\ndenied";
-	private static final Pattern PUSH_NOT_FOUND = Pattern.compile("Error response from daemon: " +
-		"push access denied for ([^,]+), repository does not exist or may require 'docker login'");
-	private static final Pattern REMOVE_MUST_BE_FORCED = Pattern.compile("Error response from daemon: " +
-		"conflict: unable to delete ([^ ]+) \\(must be forced\\) -");
+	private static final Pattern NOT_FOUND = Pattern.compile(
+		"Error response from daemon: No such image: ([^ ]+)");
+	private static final Pattern PULL_REPOSITORY_NOT_FOUND = Pattern.compile("""
+		Error response from daemon: pull access denied for [^,]+, repository does not exist or may require \
+		'docker login'""");
+	private static final Pattern PULL_MANIFEST_NOT_FOUND = Pattern.compile(
+		"Error response from daemon: manifest for [^ ]+ not found: manifest unknown: manifest unknown");
+	private static final Pattern PULL_ACCESS_DENIED1 = Pattern.compile("""
+		Error response from daemon: Head "[^"]+": denied""");
+	private static final String PULL_ACCESS_DENIED2 =
+		"Error response from daemon: error from registry: denied\ndenied";
+	private static final Pattern PUSH_NOT_FOUND = Pattern.compile("""
+		Error response from daemon: push access denied for ([^,]+), repository does not exist or may require \
+		'docker login'""");
+	private static final Pattern REMOVE_MUST_BE_FORCED = Pattern.compile(
+		"Error response from daemon: conflict: unable to delete ([^ ]+) \\(must be forced\\) -");
 
 	/**
 	 * Creates a parser.

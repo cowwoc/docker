@@ -1,5 +1,6 @@
 module com.github.cowwoc.anchor4j.docker.test
 {
+	requires com.github.cowwoc.anchor4j.core.test;
 	requires com.github.cowwoc.anchor4j.docker;
 	requires com.github.cowwoc.requirements11.java;
 	requires org.slf4j;

@@ -1,18 +1,16 @@
 package com.github.cowwoc.anchor4j.core.resource;
 
-import com.github.cowwoc.anchor4j.core.exception.BuilderNotFoundException;
+import com.github.cowwoc.anchor4j.core.exception.ContextNotFoundException;
+import com.github.cowwoc.anchor4j.core.exception.UnsupportedExporterException;
 import com.github.cowwoc.anchor4j.core.internal.client.CommandResult;
 import com.github.cowwoc.anchor4j.core.internal.client.InternalClient;
 import com.github.cowwoc.anchor4j.core.internal.client.Processes;
-import com.github.cowwoc.anchor4j.core.internal.resource.BuildXParser;
-import com.github.cowwoc.anchor4j.core.internal.resource.ErrorHandler;
-import com.github.cowwoc.anchor4j.core.internal.util.Exceptions;
 import com.github.cowwoc.anchor4j.core.internal.util.ToStringBuilder;
+import com.github.cowwoc.anchor4j.core.resource.BuildListener.Output;
 import com.github.cowwoc.requirements11.annotation.CheckReturnValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -25,10 +23,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.StringJoiner;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.github.cowwoc.requirements11.java.DefaultJavaValidators.requireThat;
 import static com.github.cowwoc.requirements11.java.DefaultJavaValidators.that;
@@ -36,40 +30,27 @@ import static com.github.cowwoc.requirements11.java.DefaultJavaValidators.that;
 /**
  * Represents an operation that builds an image.
  */
-@SuppressWarnings("PMD.MoreThanOneLogger")
 public final class ImageBuilder
 {
-	private static final Pattern ERROR_READING_PREFACE = Pattern.compile(".+? .+? http2: server: " +
-		"error reading preface from client .+?: file has already been closed\n");
-	private static final Pattern FILE_NOT_FOUND_PATTERN = Pattern.compile("ERROR: resolve : " +
-		"CreateFile (.+?): The system cannot find the file specified\\.");
-
 	private final InternalClient client;
-	private final ErrorHandler errorHandler;
 	private Path dockerfile;
 	private final Set<String> platforms = new HashSet<>();
 	private final Set<String> tags = new HashSet<>();
 	private final Set<String> cacheFrom = new HashSet<>();
 	private final Set<Exporter> exporters = new LinkedHashSet<>();
-	private ProgressType progressType = ProgressType.PLAIN;
 	private String builder = "";
-	private CommandListener listener = new DefaultEventListener();
+	private BuildListener listener = new DefaultBuildListener();
 	private final Logger log = LoggerFactory.getLogger(ImageBuilder.class);
-	private final Logger stdoutLog = LoggerFactory.getLogger(ImageBuilder.class.getName() + ".stdout");
-	private final Logger stderrLog = LoggerFactory.getLogger(ImageBuilder.class.getName() + ".stderr");
 
 	/**
 	 * Creates an image builder.
 	 *
-	 * @param client       the client configuration
-	 * @param errorHandler a callback that enables the listener to handle additional errors
+	 * @param client the client configuration
 	 */
-	ImageBuilder(InternalClient client, ErrorHandler errorHandler)
+	ImageBuilder(InternalClient client)
 	{
 		assert that(client, "client").isNotNull().elseThrow();
-		assert that(errorHandler, "errorHandler").isNotNull().elseThrow();
 		this.client = client;
-		this.errorHandler = errorHandler;
 	}
 
 	/**
@@ -155,19 +136,6 @@ public final class ImageBuilder
 	}
 
 	/**
-	 * Determines the type of the progress that the build should output. By default, {@link ProgressType#PLAIN}
-	 * is used.
-	 *
-	 * @param progressType the type of the progress output
-	 * @return this
-	 */
-	public ImageBuilder progressType(ProgressType progressType)
-	{
-		this.progressType = progressType;
-		return this;
-	}
-
-	/**
 	 * Sets the builder instance to use for building the image.
 	 *
 	 * @param builder the name of the builder. The value must start with a letter, or digit, or underscore, and
@@ -185,13 +153,13 @@ public final class ImageBuilder
 	}
 
 	/**
-	 * Sets the listener used to monitor the building of the image.
+	 * Adds a build listener.
 	 *
-	 * @param listener the command listener
+	 * @param listener the build listener
 	 * @return this
 	 * @throws NullPointerException if {@code listener} is null
 	 */
-	public ImageBuilder listener(CommandListener listener)
+	public ImageBuilder listener(BuildListener listener)
 	{
 		requireThat(listener, "listener").isNotNull();
 		this.listener = listener;
@@ -207,12 +175,38 @@ public final class ImageBuilder
 	 * @param buildContext the build context, the directory relative to which paths in the Dockerfile are
 	 *                     evaluated
 	 * @return the ID of the new image, or null if none of the {@link #export(Exporter) exports} output an image
-	 * @throws NullPointerException  if {@code buildContext} is null
-	 * @throws FileNotFoundException if any of the referenced paths do not exist
-	 * @throws IOException           if an I/O error occurs. These errors are typically transient, and retrying
-	 *                               the request may resolve the issue.
-	 * @throws InterruptedException  if the thread is interrupted before the operation completes. This can
-	 *                               happen due to shutdown signals.
+	 * @throws NullPointerException         if {@code buildContext} is null
+	 * @throws IllegalArgumentException     if {@code buildContext} is not a valid {@code Path}
+	 * @throws FileNotFoundException        if a referenced path does not exist
+	 * @throws UnsupportedExporterException if the builder does not support one of the requested exporters
+	 * @throws ContextNotFoundException     if the Docker context cannot be found or resolved
+	 * @throws IOException                  if an I/O error occurs. These errors are typically transient, and
+	 *                                      retrying the request may resolve the issue.
+	 * @throws InterruptedException         if the thread is interrupted before the operation completes. This
+	 *                                      can happen due to shutdown signals.
+	 */
+	public String build(String buildContext) throws IOException, InterruptedException
+	{
+		return build(Path.of(buildContext));
+	}
+
+	/**
+	 * Builds the image.
+	 * <p>
+	 * <strong>Warning:</strong> This method does <em>not</em> export the built image by default.
+	 * To specify and trigger export behavior, you must explicitly call {@link #export(Exporter)}.
+	 *
+	 * @param buildContext the build context, the directory relative to which paths in the Dockerfile are
+	 *                     evaluated
+	 * @return the ID of the new image, or null if none of the {@link #export(Exporter) exports} output an image
+	 * @throws NullPointerException         if {@code buildContext} is null
+	 * @throws FileNotFoundException        if a referenced path does not exist
+	 * @throws UnsupportedExporterException if the builder does not support one of the requested exporters
+	 * @throws ContextNotFoundException     if the Docker context cannot be found or resolved
+	 * @throws IOException                  if an I/O error occurs. These errors are typically transient, and
+	 *                                      retrying the request may resolve the issue.
+	 * @throws InterruptedException         if the thread is interrupted before the operation completes. This
+	 *                                      can happen due to shutdown signals.
 	 */
 	public String build(Path buildContext) throws IOException, InterruptedException
 	{
@@ -244,8 +238,6 @@ public final class ImageBuilder
 			arguments.add(exporter.toCommandLine());
 			outputsImage = exporter.outputsImage();
 		}
-		if (progressType != ProgressType.PLAIN)
-			arguments.add("--progress=" + progressType.toCommandLine());
 		for (String tag : tags)
 		{
 			arguments.add("--tag");
@@ -265,7 +257,7 @@ public final class ImageBuilder
 			{
 				arguments.add("--iidfile");
 				arguments.add(imageIdFile.toString());
-				buildPart2(arguments, absoluteBuildContext);
+				build2(arguments, absoluteBuildContext);
 				return Files.readString(imageIdFile);
 			}
 			finally
@@ -275,7 +267,7 @@ public final class ImageBuilder
 				Files.deleteIfExists(imageIdFile);
 			}
 		}
-		buildPart2(arguments, absoluteBuildContext);
+		build2(arguments, absoluteBuildContext);
 		return null;
 	}
 
@@ -284,35 +276,57 @@ public final class ImageBuilder
 	 *
 	 * @param arguments            the command-line arguments
 	 * @param absoluteBuildContext the absolute path of the build context
-	 * @throws IOException          if an I/O error occurs. These errors are typically transient, and retrying
-	 *                              the request may resolve the issue.
-	 * @throws InterruptedException if the thread is interrupted before the operation completes. This can happen
-	 *                              due to shutdown signals.
+	 * @throws IOException              if an I/O error occurs. These errors are typically transient, and
+	 *                                  retrying the request may resolve the issue.
+	 * @throws InterruptedException     if the thread is interrupted before the operation completes. This can
+	 *                                  happen due to shutdown signals.
+	 * @throws ContextNotFoundException if the Docker context cannot be found or resolved
 	 */
 	@SuppressWarnings("BusyWait")
-	private void buildPart2(List<String> arguments, Path absoluteBuildContext)
+	private void build2(List<String> arguments, Path absoluteBuildContext)
 		throws IOException, InterruptedException
 	{
 		arguments.add(absoluteBuildContext.toString());
 		Instant deadline = Instant.now().plusSeconds(10);
-		while (true)
+		try
 		{
-			ProcessBuilder processBuilder = client.getProcessBuilder(arguments);
-			log.debug("Running: {}", processBuilder.command());
-			Process process = processBuilder.start();
-			try
+			while (true)
 			{
-				listener.accept(processBuilder, process);
-				break;
+				ProcessBuilder processBuilder = client.getProcessBuilder(arguments);
+				log.debug("Running: {}", processBuilder.command());
+				Process process = processBuilder.start();
+				try
+				{
+					listener.buildStarted(process.inputReader(), process.errorReader(), process::waitFor);
+					Output output = listener.waitUntilBuildCompletes();
+
+					int exitCode = output.exitCode();
+					if (exitCode == 0)
+						listener.buildPassed();
+					else
+					{
+						List<String> command = List.copyOf(processBuilder.command());
+						Path workingDirectory = Processes.getWorkingDirectory(processBuilder);
+						listener.buildFailed(command, workingDirectory, exitCode);
+						CommandResult result = new CommandResult(command, workingDirectory, output.stdout(),
+							output.stderr(), exitCode);
+						throw result.unexpectedResponse();
+					}
+					break;
+				}
+				catch (IOException e)
+				{
+					// WORKAROUND: https://github.com/moby/moby/issues/50160
+					Instant now = Instant.now();
+					if (now.isAfter(deadline))
+						throw e;
+					Thread.sleep(100);
+				}
 			}
-			catch (IOException e)
-			{
-				// WORKAROUND: https://github.com/moby/moby/issues/50160
-				Instant now = Instant.now();
-				if (now.isAfter(deadline))
-					throw e;
-				Thread.sleep(100);
-			}
+		}
+		finally
+		{
+			listener.buildCompleted();
 		}
 	}
 
@@ -323,92 +337,6 @@ public final class ImageBuilder
 			add("platforms", platforms).
 			add("tags", tags).
 			toString();
-	}
-
-	/**
-	 * The default event listener for builds.
-	 */
-	private final class DefaultEventListener implements CommandListener
-	{
-		private final Logger log = LoggerFactory.getLogger(DefaultEventListener.class);
-
-		@Override
-		public void accept(ProcessBuilder processBuilder, Process process)
-			throws IOException, InterruptedException
-		{
-			BlockingQueue<Throwable> exceptions = new LinkedBlockingQueue<>();
-			StringJoiner stdoutJoiner = new StringJoiner("\n");
-			StringJoiner stderrJoiner = new StringJoiner("\n");
-
-			Thread parentThread = Thread.currentThread();
-			try (BufferedReader stdoutReader = process.inputReader();
-			     BufferedReader stderrReader = process.errorReader())
-			{
-				Thread stdoutThread = Thread.startVirtualThread(() ->
-				{
-					stdoutLog.info("Spawned by thread \"{}\"", parentThread.getName());
-					Processes.consume(stdoutReader, exceptions, line ->
-					{
-						stdoutJoiner.add(line);
-						stdoutLog.info(line);
-					});
-				});
-				Thread stderrThread = Thread.startVirtualThread(() ->
-					Processes.consume(stderrReader, exceptions, line ->
-					{
-						stderrLog.info("Spawned by thread \"{}\"", parentThread.getName());
-						stderrJoiner.add(line);
-						// Docker writes build progress to stderr; this does not indicate an error.
-						stderrLog.info(line);
-					}));
-
-				// We have to invoke Thread.join() to ensure that all the data is read. Blocking on Process.waitFor()
-				// does not guarantee this.
-				stdoutThread.join();
-				stderrThread.join();
-				int exitCode = process.waitFor();
-				if (exitCode != 0)
-				{
-					String stdout = stdoutJoiner.toString();
-					String stderr = stderrJoiner.toString();
-					if (progressType == ProgressType.TTY &&
-						stderr.equals("ERROR: failed to get console: The handle is invalid."))
-					{
-						log.error("ImageBuilder.progressType() was set to TTY, but the current " +
-							"environment does not support interactive terminals. Consider using a different progress " +
-							"type, such as PLAIN.");
-						return;
-					}
-					Matcher matcher = ERROR_READING_PREFACE.matcher(stderr);
-					if (matcher.find())
-					{
-						// WORKAROUND: https://github.com/docker/buildx/issues/3238
-						// Ignore intermittent warning that does not seem to impact the operation. Example:
-						// "2025/06/11 15:53:20 http2: server: error reading preface from client //./pipe/dockerDesktopLinuxEngine: file has already been closed"
-						stderr = stderr.substring(matcher.end());
-					}
-					matcher = FILE_NOT_FOUND_PATTERN.matcher(stderr);
-					if (matcher.matches())
-						throw new FileNotFoundException(matcher.group(1));
-					matcher = BuildXParser.NOT_FOUND.matcher(stderr);
-					if (matcher.matches())
-						throw new BuilderNotFoundException(matcher.group(1));
-
-					String workingDirectory;
-					if (processBuilder.directory() != null)
-						workingDirectory = processBuilder.directory().getAbsolutePath();
-					else
-						workingDirectory = System.getProperty("user.dir");
-					CommandResult result = new CommandResult(processBuilder.command(), workingDirectory, stdout, stderr,
-						exitCode);
-					errorHandler.accept(result, stderr);
-					throw result.unexpectedResponse();
-				}
-			}
-			IOException exception = Exceptions.combineAsIOException(exceptions);
-			if (exception != null)
-				throw exception;
-		}
 	}
 
 	/**
@@ -823,10 +751,10 @@ public final class ImageBuilder
 		 */
 		public Exporter build()
 		{
-			return new OutputAdapter();
+			return new ExporterAdapter();
 		}
 
-		private final class OutputAdapter implements Exporter
+		private final class ExporterAdapter implements Exporter
 		{
 			@Override
 			public String getType()
@@ -947,10 +875,10 @@ public final class ImageBuilder
 		 */
 		public Exporter build()
 		{
-			return new OutputAdapter();
+			return new ExporterAdapter();
 		}
 
-		private final class OutputAdapter implements Exporter
+		private final class ExporterAdapter implements Exporter
 		{
 			@Override
 			public String getType()
@@ -1026,10 +954,10 @@ public final class ImageBuilder
 		 */
 		public Exporter build()
 		{
-			return new OutputAdapter();
+			return new ExporterAdapter();
 		}
 
-		private final class OutputAdapter implements Exporter
+		private final class ExporterAdapter implements Exporter
 		{
 			@Override
 			public String getType()

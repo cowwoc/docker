@@ -6,10 +6,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashSet;
@@ -100,10 +100,14 @@ public final class Paths
 					}
 				}
 			}
-			catch (IOException | UncheckedIOException e)
+			catch (NoSuchFileException _)
+			{
+				// Skip path elements that do not exist
+			}
+			catch (IOException e)
 			{
 				Logger log = LoggerFactory.getLogger(Processes.class);
-				log.warn("Skipping {}", directory, e);
+				log.debug("Skipping {}", directory, e);
 			}
 		}
 		return matchPath;

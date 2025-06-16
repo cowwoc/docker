@@ -39,14 +39,24 @@ public class SwarmParser extends AbstractParser
 		
 		 *docker swarm join --token ([^ ]+) (.+?)
 		""");
-	private static final Pattern JOIN_SWARM_PATTERN = Pattern.compile("This node joined a swarm as a " +
-		"(manager|worker)\\.");
-	private static final String ALREADY_IN_SWARM = "Error response from daemon: This node is already part " +
-		"of a swarm. Use \"docker swarm leave\" to leave this swarm and join another one.";
-	private static final Pattern CONNECTION_REFUSED = Pattern.compile("Error response from daemon: " +
-		"rpc error: code = Unavailable desc = connection error: desc = \"transport: Error while dialing: dial " +
-		"(.+?): connect: connection refused\"");
+	private static final Pattern JOIN_SWARM_PATTERN = Pattern.compile(
+		"This node joined a swarm as a (manager|worker)\\.");
+	private static final String ALREADY_IN_SWARM = """
+		Error response from daemon: This node is already part of a swarm. Use "docker swarm leave" to leave \
+		this swarm and join another one.""";
+	private static final Pattern CONNECTION_REFUSED = Pattern.compile("""
+		Error response from daemon: rpc error: code = Unavailable desc = connection error: desc = "transport: \
+		Error while dialing: dial (.+?): connect: connection refused\"""");
 	private static final String INVALID_JOIN_TOKEN = "Error response from daemon: invalid join token";
+	private static final String REMOVING_LAST_MANAGER = """
+		Error response from daemon: You are attempting to leave the swarm on a node that is participating as a \
+		manager. Removing the last manager erases all current state of the swarm. Use `--force` to ignore this \
+		message.""";
+	private static final Pattern REMOVING_QUORUM = Pattern.compile("""
+		Error response from daemon: You are attempting to leave the swarm on a node that is participating as a \
+		manager\\. Removing this node leaves \\d+ managers out of \\d+\\. Without a Raft quorum your swarm will \
+		be inaccessible\\. The only way to restore a swarm that has lost consensus is to reinitialize it with \
+		`--force-new-cluster`\\. Use `--force` to suppress this message\\.""");
 
 	/**
 	 * Creates a parser.
@@ -150,10 +160,8 @@ public class SwarmParser extends AbstractParser
 	{
 		if (result.exitCode() != 0)
 		{
-			if (result.stderr().equals("Error response from daemon: " +
-				"You are attempting to leave the swarm on a node that is participating as a manager. " +
-				"Removing the last manager erases all current state of the swarm. " +
-				"Use `--force` to ignore this message."))
+			String stderr = result.stderr();
+			if (stderr.equals(REMOVING_LAST_MANAGER) || REMOVING_QUORUM.matcher(stderr).matches())
 			{
 				throw new ResourceInUseException("To safely remove this manager from the swarm, first demote it " +
 					"to a worker, then leave the quorum. If you intend to remove the final manager and erase the " +

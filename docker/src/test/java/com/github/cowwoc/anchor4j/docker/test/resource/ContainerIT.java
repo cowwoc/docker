@@ -14,6 +14,7 @@ import org.testng.annotations.Test;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
@@ -251,8 +252,8 @@ public final class ContainerIT
 		String imageId = client.pullImage(EXISTING_IMAGE).pull();
 
 		int expected = 3;
-		String containerId = client.createContainer(imageId).arguments("sh", "-c",
-			"\"sleep 3; exit " + expected + "\"").create();
+		String containerId = client.createContainer(imageId).arguments("sh", "-c", "sleep 3; exit " + expected).
+			create();
 		client.startContainer(containerId).start();
 
 		// Make sure we begin waiting before the container has shut down
@@ -270,8 +271,7 @@ public final class ContainerIT
 		Docker client = it.getClient();
 		String imageId = client.pullImage(EXISTING_IMAGE).pull();
 		int expected = 1;
-		String containerId = client.createContainer(imageId).arguments("sh", "-c", "\"exit " + expected +
-			"\"").create();
+		String containerId = client.createContainer(imageId).arguments("sh", "-c", "exit " + expected).create();
 		client.startContainer(containerId).start();
 		int actual = client.waitUntilContainerStops(containerId);
 		requireThat(actual, "actual").isEqualTo(expected, "expected");
@@ -287,8 +287,7 @@ public final class ContainerIT
 		Docker client = it.getClient();
 		String imageId = client.pullImage(EXISTING_IMAGE).pull();
 		int expected = 1;
-		String containerId = client.createContainer(imageId).arguments("sh", "-c", "\"exit " + expected + "\"").
-			create();
+		String containerId = client.createContainer(imageId).arguments("sh", "-c", "exit " + expected).create();
 		client.startContainer(containerId).start();
 		client.stopContainer(containerId).stop();
 		client.removeContainer(containerId).removeAnonymousVolumes().remove();
@@ -309,7 +308,7 @@ public final class ContainerIT
 		IntegrationTestContainer it = new IntegrationTestContainer();
 		Docker client = it.getClient();
 		String imageId = client.pullImage(EXISTING_IMAGE).pull();
-		List<String> command = List.of("sh", "-c", "\"echo This is stdout; echo This is stderr >&2; exit 123\"");
+		List<String> command = List.of("sh", "-c", "echo This is stdout; echo This is stderr >&2; exit 123");
 		String containerId = client.createContainer(imageId).arguments(command).create();
 		client.startContainer(containerId).start();
 		LogStreams containerLogs = client.getContainerLogs(containerId).follow().stream();
@@ -332,7 +331,8 @@ public final class ContainerIT
 			int exitCode = client.waitUntilContainerStops(containerId);
 			String stdout = stdoutJoiner.toString();
 			String stderr = stderrJoiner.toString();
-			CommandResult result = new CommandResult(command, System.getProperty("user.dir"), stdout, stderr,
+			Path workingDirectory = Path.of(System.getProperty("user.dir"));
+			CommandResult result = new CommandResult(command, workingDirectory, stdout, stderr,
 				exitCode);
 			requireThat(stdout, "stdout").withContext(result, "result").isEqualTo("This is stdout");
 			requireThat(stderr, "stderr").withContext(result, "result").isEqualTo("This is stderr");

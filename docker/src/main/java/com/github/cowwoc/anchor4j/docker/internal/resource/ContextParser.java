@@ -23,16 +23,19 @@ import java.util.regex.Pattern;
  */
 public class ContextParser extends AbstractParser
 {
-	private static final Pattern CONTEXT_NOT_FOUND = Pattern.compile("context \"([^\"]+)\" does not exist");
-	private static final Pattern CONFLICTING_NAME = Pattern.compile("context \"([^\"]+)\" already exists");
-	private static final Pattern REMOVE_FAILED_RESOURCE_IN_USE = Pattern.compile("failed to remove context " +
-		"(.+?): failed to remove metadata: remove (.+?): The process cannot access the file because it is " +
-		"being used by another process\\.");
-	private static final Pattern TLS_CERTIFICATE_NOT_FOUND = Pattern.compile("unable to create docker " +
-		"endpoint config: open ([^:]+): The system cannot find the (?:file|path) specified\\.");
-	private static final Pattern TLS_CERTIFICATE_MISSING_DATA = Pattern.compile("unable to create docker " +
-		"endpoint config: invalid docker endpoint options: failed to retrieve context tls info: tls: failed " +
-		"to find any PEM data in certificate input");
+	private static final Pattern CONTEXT_NOT_FOUND = Pattern.compile("""
+		context "([^"]+)" does not exist""");
+	private static final Pattern CONFLICTING_NAME = Pattern.compile("""
+		context "([^"]+)" already exists""");
+	private static final Pattern REMOVE_FAILED_RESOURCE_IN_USE = Pattern.compile("""
+		failed to remove context (.+?): failed to remove metadata: remove (.+?): The process cannot access the \
+		file because it is being used by another process\\.""");
+	private static final Pattern TLS_CERTIFICATE_NOT_FOUND = Pattern.compile("""
+		unable to create docker endpoint config: open ([^:]+): The system cannot find the (?:file|path) \
+		specified\\.""");
+	private static final Pattern TLS_CERTIFICATE_MISSING_DATA = Pattern.compile("""
+		unable to create docker endpoint config: invalid docker endpoint options: failed to retrieve context \
+		tls info: tls: failed to find any PEM data in certificate input""");
 
 	/**
 	 * Creates a parser.

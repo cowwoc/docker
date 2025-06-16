@@ -1,11 +1,12 @@
 package com.github.cowwoc.anchor4j.core.internal.client;
 
+import com.github.cowwoc.pouch.core.WrappedCheckedException;
 import org.slf4j.Logger;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
+import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Queue;
 import java.util.function.Consumer;
@@ -43,24 +44,22 @@ public final class Processes
 	}
 
 	/**
-	 * Consumes and discards all remaining data from the given stream to prevent the associated process from
-	 * blocking.
+	 * Discards the remaining data from the given reader and closes it.
 	 * <p>
-	 * This is typically used to drain a process's output or error stream to avoid deadlocks when the process
-	 * writes more data than the stream's buffer can hold.
+	 * This is typically used to drain a process's output or error reade to avoid deadlocks when the process
+	 * writes more data than the reader's buffer can hold.
 	 *
-	 * @param stream the stream
-	 * @param log    the logger used to record any exceptions that are thrown while reading from the stream
+	 * @param reader the reader
+	 * @param log    the logger used to record any exceptions that are thrown while reading from the reader
 	 */
-	public static void discard(InputStream stream, Logger log)
+	public static void discard(BufferedReader reader, Logger log)
 	{
-		try (stream)
+		try (reader)
 		{
-			byte[] buffer = new byte[10 * 1024];
 			while (true)
 			{
-				int count = stream.read(buffer);
-				if (count == -1)
+				String line = reader.readLine();
+				if (line == null)
 					break;
 			}
 		}
@@ -89,6 +88,10 @@ public final class Processes
 				consumer.accept(line);
 			}
 		}
+		catch (WrappedCheckedException e)
+		{
+			exceptions.add(e.getCause());
+		}
 		catch (IOException | RuntimeException e)
 		{
 			exceptions.add(e);
@@ -101,12 +104,12 @@ public final class Processes
 	 * @param processBuilder the {@code ProcessBuilder}
 	 * @return the working directory
 	 */
-	public static String getWorkingDirectory(ProcessBuilder processBuilder)
+	public static Path getWorkingDirectory(ProcessBuilder processBuilder)
 	{
 		File workingDirectory = processBuilder.directory();
 		if (workingDirectory != null)
-			return workingDirectory.getAbsolutePath();
-		return System.getProperty("user.dir");
+			return workingDirectory.toPath();
+		return Path.of(System.getProperty("user.dir"));
 	}
 
 	private Processes()

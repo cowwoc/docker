@@ -3,6 +3,7 @@ package com.github.cowwoc.anchor4j.core.internal.resource;
 import com.github.cowwoc.anchor4j.core.internal.client.InternalClient;
 import com.github.cowwoc.anchor4j.core.resource.Builder;
 import com.github.cowwoc.anchor4j.core.resource.Builder.Status;
+import com.github.cowwoc.anchor4j.core.resource.BuilderCreator;
 import com.github.cowwoc.anchor4j.core.resource.ImageBuilder;
 
 /**
@@ -10,6 +11,14 @@ import com.github.cowwoc.anchor4j.core.resource.ImageBuilder;
  */
 public interface BuildXAccess
 {
+	/**
+	 * Creates a builder.
+	 *
+	 * @param client the client configuration
+	 * @return a builder creator
+	 */
+	BuilderCreator create(InternalClient client);
+
 	/**
 	 * Looks up a builder by its name.
 	 *
@@ -27,11 +36,10 @@ public interface BuildXAccess
 	/**
 	 * Builds an image.
 	 *
-	 * @param client       the client configuration
-	 * @param errorHandler a callback that enables the listener to handle additional errors
+	 * @param client the client configuration
 	 * @return an image builder
 	 */
-	ImageBuilder buildImage(InternalClient client, ErrorHandler errorHandler);
+	ImageBuilder buildImage(InternalClient client);
 
 	/**
 	 * Looks up a value from its String representation.

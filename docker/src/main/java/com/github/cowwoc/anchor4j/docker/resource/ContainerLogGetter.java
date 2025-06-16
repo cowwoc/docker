@@ -175,7 +175,7 @@ public final class ContainerLogGetter
 		}
 
 		/**
-		 * Returns the container's standard output log as a byte stream.
+		 * Returns the container's standard output as a byte stream.
 		 *
 		 * @return the output log
 		 */
@@ -185,8 +185,8 @@ public final class ContainerLogGetter
 		}
 
 		/**
-		 * Returns the container's standard output log as a {@code BufferedReader}, using the host's default
-		 * character encoding.
+		 * Returns the container's standard output as a {@code BufferedReader}, using the host's default character
+		 * encoding.
 		 *
 		 * @return the output log
 		 */
@@ -196,7 +196,7 @@ public final class ContainerLogGetter
 		}
 
 		/**
-		 * Returns the container's standard error log as a byte stream.
+		 * Returns the container's standard error as a byte stream.
 		 *
 		 * @return the error log
 		 */
@@ -206,8 +206,8 @@ public final class ContainerLogGetter
 		}
 
 		/**
-		 * Returns the container's standard error log as a {@code BufferedReader}, using the host's default
-		 * character encoding.
+		 * Returns the container's standard error as a {@code BufferedReader}, using the host's default character
+		 * encoding.
 		 *
 		 * @return the error log
 		 */

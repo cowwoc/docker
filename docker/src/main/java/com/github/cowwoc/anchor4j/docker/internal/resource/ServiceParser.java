@@ -24,12 +24,13 @@ public class ServiceParser extends AbstractParser
 {
 	private static final Pattern IMAGE_NOT_FOUND = Pattern.compile("^Unable to find image '([^']+)' locally.*",
 		DOTALL);
-	private static final Pattern CONFLICTING_NAME = Pattern.compile("Error response from daemon: " +
-		"Conflict. The container name \"([^\"]+)\" is already in use by container \"([^\"]+)\"\\. You have to " +
-		"remove \\(or rename\\) that container to be able to reuse that name\\.");
-	private static final String NOT_A_MANAGER = "Error response from daemon: This node is not a swarm " +
-		"manager. Worker nodes can't be used to view or modify cluster state. Please run this command on a " +
-		"manager node or promote the current node to a manager.";
+	private static final Pattern CONFLICTING_NAME = Pattern.compile("""
+		Error response from daemon: Conflict. The container name "([^"]+)" is already in use by container \
+		"([^"]+)"\\. You have to remove \\(or rename\\) that container to be able to reuse that name\\.""");
+	private static final String NOT_A_MANAGER = """
+		Error response from daemon: This node is not a swarm manager. Worker nodes can't be used to view or \
+		modify cluster state. Please run this command on a manager node or promote the current node to a \
+		manager.""";
 
 	/**
 	 * Creates a parser.

@@ -19,8 +19,8 @@ import java.util.regex.Pattern;
  */
 public final class NetworkParser extends AbstractParser
 {
-	private static final Pattern NOT_FOUND = Pattern.compile("Error response from daemon: network " +
-		".+? not found");
+	private static final Pattern NOT_FOUND = Pattern.compile(
+		"Error response from daemon: network .+? not found");
 
 	/**
 	 * Creates a parser.
