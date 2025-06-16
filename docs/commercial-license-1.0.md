@@ -25,7 +25,7 @@ This agreement governs use of the commercial edition of Anchor4J.
 3. Support Term
    You are entitled to receive support services from 9187219 Canada Inc. for a period of one (1) year from the
    date your license fees were last paid in full. Support includes bug fixes, updates, and technical
-   assistance as described in the separate [support policy](support-policy.md). Support does not include
+   assistance as described in the separate [support policy](support-policy-1.0.md). Support does not include
    implementation of new features or custom development requests. Continued support beyond this period
    requires renewal of the license fees.
 

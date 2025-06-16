@@ -69,7 +69,7 @@ please [open a new issue](issues/new).
 
 The `core` and `docker` modules are dual-licensed:
 
-- ✅ [ModernJDK License](docs/modern-jdk-license.md) (free for personal use or small businesses):
+- ✅ [ModernJDK License](docs/modern-jdk-license-1.0.md) (free for personal use or small businesses):
   - You may use, modify, and redistribute this software only when:
     - It is compiled for and executed on the latest generally available (GA) Java Development Kit (JDK)
       version at the time of deployment.
@@ -77,7 +77,7 @@ The `core` and `docker` modules are dual-licensed:
     - You do not rebrand or white-label the software.
   - You are not required to update existing deployments when a newer JDK is released.
 
-- 💼 [Commercial License](docs/commercial-license.md):
+- 💼 [Commercial License](docs/commercial-license-1.0.md):
   - Required for:
     - Compiling, running, or distributing the software for older (non-GA) JDK versions.
     - Use by companies with more than 10 employees.
