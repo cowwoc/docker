@@ -13,14 +13,34 @@ jobs:
       - name: Install Java
         uses: actions/setup-java@v4
         with:
-          distribution: zulu
-          java-version: 23
+          distribution: temurin
+          java-version: 24
 
       - name: Cache Dependencies
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository/*
           key: ${{ runner.OS }}-maven-${{ hashFiles('**/pom.xml') }}
+
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v4
+        with:
+          daemon-config: |
+            {
+              "features": {
+                "containerd-snapshotter": true
+              }
+            }
+
+      - name: Docker version
+        run: docker version
+
+      # Pull the images used by integration tests
+      - name: Pull docker:dind
+        run: docker pull docker:dind
+
+      - name: Pull ghcr.io/hlesey/busybox
+        run: docker pull ghcr.io/hlesey/busybox
 
       # Maven command-line options:
       # --batch-mode: recommended in CI to inform maven to not run in interactive mode (less logs)
